@@ -1035,6 +1035,17 @@ struct DLL_API SoilOrganicModuleParameters : public Tools::Json11Serializable {
   bool __enable_kaiteew_TempOnDecompostion__{true};
   bool __enable_kaiteew_MoistOnDecompostion__{true};
   bool __enable_kaiteew_ClayOnDecompostion__{true};
+
+  // Alternative internal SOM cycling structure of DAISY as suggested by
+  // Laub et al. (2020), Biogeosciences 17, 1393-1413, Fig. 7, https://doi.org/10.5194/bg-17-1393-2020
+  // false (default): original DAISY structure (Fig. 1): a fraction PartSOM_Fast_to_SOM_Slow of the
+  //                  decomposed SOM_fast is transferred directly into SOM_slow.
+  // true:            no direct transfer SOM_fast -> SOM_slow. The partitioning between SOM_slow and
+  //                  SOM_fast happens at the death of either SMB pool: of the dead SMB carbon entering
+  //                  SOM, the fraction PartSOM_Fast_to_SOM_Slow (= humification efficiency f_SOM_slow)
+  //                  goes into SOM_slow and the rest into SOM_fast. Decomposed SOM_fast is fully
+  //                  utilised by SMB_slow (and respired as CO2).
+  bool __enable_laub_SOM_flow__{false};
   SticsParameters sticsParams;
 };
 

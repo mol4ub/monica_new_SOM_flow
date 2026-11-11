@@ -138,9 +138,19 @@ SoilOrganic::SoilOrganic(SoilColumn &sc, SoilOrganicModuleParameters userParams)
     // Initialisation of pool SMB_Fast [kg C m-3]
     //layer.vs_SMB_Fast = po_SOM_FastUtilizationEfficiency * po_PartSOM_to_SMB_Fast * vo_SoilOrganicC[i];
 
-    // Initialisation of pool SOM_Slow [kg C m-3]
-    layer.vs_SOM_Slow = vo_SoilOrganicC[i] / (1.0 + po_SOM_SlowDecCoeffStandard
-                                                    / (po_SOM_FastDecCoeffStandard * po_PartSOM_Fast_to_SOM_Slow));
+    // Initialisation of pool SOM_Slow [kg C m-3] assuming steady state
+    if (_params.__enable_laub_SOM_flow__) {
+      // Alternative structure (Laub et al. 2020, Fig. 7): dead SMB carbon entering SOM (D) is split
+      // into SOM_slow (f * D) and SOM_fast ((1 - f) * D). At steady state SOM_slow = f * D / k_slow and
+      // SOM_fast = (1 - f) * D / k_fast, hence the slow SOM fraction is
+      // 1 / (1 + (1 - f) * k_slow / (f * k_fast))
+      layer.vs_SOM_Slow = vo_SoilOrganicC[i] / (1.0 + po_SOM_SlowDecCoeffStandard * (1.0 - po_PartSOM_Fast_to_SOM_Slow)
+                                                      / (po_SOM_FastDecCoeffStandard * po_PartSOM_Fast_to_SOM_Slow));
+    } else {
+      // Original DAISY structure, Bruun & Jensen (2002), Eq. 1 in Laub et al. (2020)
+      layer.vs_SOM_Slow = vo_SoilOrganicC[i] / (1.0 + po_SOM_SlowDecCoeffStandard
+                                                      / (po_SOM_FastDecCoeffStandard * po_PartSOM_Fast_to_SOM_Slow));
+    }
 
     // Initialisation of pool SOM_Fast [kg C m-3]
     layer.vs_SOM_Fast = vo_SoilOrganicC[i] - layer.vs_SOM_Slow;
@@ -886,6 +896,50 @@ void SoilOrganic::fo_MIT() {
     }
   }
 
+  // Internal SOM cycling structure, see Laub et al. (2020), Biogeosciences 17, 1393-1413
+  // - original DAISY (Fig. 1): a fraction PartSOM_Fast_to_SOM_Slow of decomposed SOM_fast goes into SOM_slow,
+  //   dead SMB carbon entering SOM goes into SOM_fast only
+  // - alternative (Fig. 7): no transfer SOM_fast -> SOM_slow, dead SMB carbon entering SOM is split between
+  //   SOM_slow (fraction PartSOM_Fast_to_SOM_Slow = humification efficiency) and SOM_fast (rest)
+  const bool laubSOMFlow = _params.__enable_laub_SOM_flow__;
+  // fraction of decomposed SOM_fast which is transferred directly into SOM_slow []
+  const double partSOM_FastDec_to_SOM_Slow = laubSOMFlow ? 0.0 : po_PartSOM_Fast_to_SOM_Slow;
+  // fraction of dead SMB carbon entering SOM which goes into SOM_slow (the rest goes into SOM_fast) []
+  const double partSMB_Death_to_SOM_Slow = laubSOMFlow ? po_PartSOM_Fast_to_SOM_Slow : 0.0;
+
+  // dead SMB carbon entering the SOM pools [kg C m-3 d-1]
+  auto smbDeathToSOM = [&](int i) {
+    return po_PartSMB_Slow_to_SOM_Fast * vo_SMB_SlowDeathRate[i]
+           + po_PartSMB_Fast_to_SOM_Fast * vo_SMB_FastDeathRate[i];
+  };
+
+  // dead SMB carbon not entering SOM, which is recycled by SMB_fast (and partly respired) [kg C m-3 d-1]
+  auto smbDeathRecycled = [&](int i) {
+    // the original formulation applies (1 - PartSMB_Slow_to_SOM_Fast) to both SMB pools,
+    // which is identical to the formulation below as long as PartSMB_Slow_to_SOM_Fast == PartSMB_Fast_to_SOM_Fast
+    return laubSOMFlow
+           ? (1.0 - po_PartSMB_Slow_to_SOM_Fast) * vo_SMB_SlowDeathRate[i]
+             + (1.0 - po_PartSMB_Fast_to_SOM_Fast) * vo_SMB_FastDeathRate[i]
+           : (1.0 - po_PartSMB_Slow_to_SOM_Fast) * (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i]);
+  };
+
+  auto calcSMB_SlowDelta = [&](int i) {
+    return (po_SOM_SlowUtilizationEfficiency * vo_SOM_SlowDecRate[i])
+           + (po_SOM_FastUtilizationEfficiency * (1.0 - partSOM_FastDec_to_SOM_Slow) * vo_SOM_FastDecRate[i])
+           //+ (po_AOM_SlowUtilizationEfficiency * vo_AOM_SlowDecRateSum[i])
+           + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBslow[i])
+           //+ (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBslow)
+           - vo_SMB_SlowDecRate[i];
+  };
+
+  auto calcSMB_FastDelta = [&](int i) {
+    return (po_SMB_UtilizationEfficiency * smbDeathRecycled(i))
+           //+ (po_AOM_FastUtilizationEfficiency * vo_AOM_FastDecRateSum[i])
+           + (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBfast[i])
+           + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBfast[i])
+           - vo_SMB_FastDecRate[i];
+  };
+
   // Calculation of pool changes by decomposition
   for (int i = 0; i < nools; i++) {
     auto &layi = soilColumn.at(i);
@@ -936,24 +990,15 @@ void SoilOrganic::fo_MIT() {
       AOMfast_to_SMBfast[i] += props.vo_AOM_FastDecRate_to_SMB_Fast;
     }
 
-    vo_SMB_SlowDelta[i] = (po_SOM_SlowUtilizationEfficiency * vo_SOM_SlowDecRate[i])
-                          + (po_SOM_FastUtilizationEfficiency * (1.0 - po_PartSOM_Fast_to_SOM_Slow)
-                             * vo_SOM_FastDecRate[i])
-                          //+ (po_AOM_SlowUtilizationEfficiency * vo_AOM_SlowDecRateSum[i])
-                          + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBslow[i])
-                          //+ (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBslow)
-                          - vo_SMB_SlowDecRate[i];
-
-    vo_SMB_FastDelta[i] = (po_SMB_UtilizationEfficiency *
-                           (1.0 - po_PartSMB_Slow_to_SOM_Fast)
-                           * (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i]))
-                          //+ (po_AOM_FastUtilizationEfficiency * vo_AOM_FastDecRateSum[i])
-                          + (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBfast[i])
-                          + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBfast[i])
-                          - vo_SMB_FastDecRate[i];
+    vo_SMB_SlowDelta[i] = calcSMB_SlowDelta(i);
+    vo_SMB_FastDelta[i] = calcSMB_FastDelta(i);
 
     //!Eq.6-9 in the DAISY manual
-    vo_SOM_SlowDelta[i] = po_PartSOM_Fast_to_SOM_Slow * vo_SOM_FastDecRate[i] - vo_SOM_SlowDecRate[i];
+    // original DAISY: input from SOM_fast decomposition only
+    // Laub et al. (2020), Fig. 7: input from dead SMB only
+    vo_SOM_SlowDelta[i] = partSOM_FastDec_to_SOM_Slow * vo_SOM_FastDecRate[i]
+                          + partSMB_Death_to_SOM_Slow * smbDeathToSOM(i)
+                          - vo_SOM_SlowDecRate[i];
 
     if ((layi.vs_SOM_Slow + vo_SOM_SlowDelta[i]) < 0.0) vo_SOM_SlowDelta[i] = layi.vs_SOM_Slow;
 
@@ -962,8 +1007,7 @@ void SoilOrganic::fo_MIT() {
     //	* (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i])
     //	- vo_SOM_FastDecRate[i];
 
-    vo_SOM_FastDelta[i] = po_PartSMB_Slow_to_SOM_Fast * vo_SMB_SlowDeathRate[i]
-                          + po_PartSMB_Fast_to_SOM_Fast * vo_SMB_FastDeathRate[i]
+    vo_SOM_FastDelta[i] = (1.0 - partSMB_Death_to_SOM_Slow) * smbDeathToSOM(i)
                           - vo_SOM_FastDecRate[i];
 
     if ((layi.vs_SOM_Fast + vo_SOM_FastDelta[i]) < 0.0) vo_SOM_FastDelta[i] = layi.vs_SOM_Fast;
@@ -1046,25 +1090,13 @@ void SoilOrganic::fo_MIT() {
 
         // Recalculation of SMB pool changes
         //@todo <b>Claas: </b> Folgende Algorithmen prüfen: Was verändert sich?
-        vo_SMB_SlowDelta[i] = (po_SOM_SlowUtilizationEfficiency * vo_SOM_SlowDecRate[i])
-                              + (po_SOM_FastUtilizationEfficiency * (1.0 - po_PartSOM_Fast_to_SOM_Slow) *
-                                 vo_SOM_FastDecRate[i])
-                              //+ (po_AOM_SlowUtilizationEfficiency * vo_AOM_SlowDecRateSum[i])
-                              + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBslow[i])
-                              //+ (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBslow)
-                              - vo_SMB_SlowDecRate[i];
+        vo_SMB_SlowDelta[i] = calcSMB_SlowDelta(i);
 
         if ((layi.vs_SMB_Slow + vo_SMB_SlowDelta[i]) < 0.0) {
           vo_SMB_SlowDelta[i] = layi.vs_SMB_Slow;
         }
 
-        vo_SMB_FastDelta[i] = (po_SMB_UtilizationEfficiency *
-                               (1.0 - po_PartSMB_Slow_to_SOM_Fast) *
-                               (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i]))
-                              //+ (po_AOM_FastUtilizationEfficiency * vo_AOM_FastDecRateSum[i])
-                              + (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBfast[i])
-                              + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBfast[i])
-                              - vo_SMB_FastDecRate[i];
+        vo_SMB_FastDelta[i] = calcSMB_FastDelta(i);
 
         if ((layi.vs_SMB_Fast + vo_SMB_FastDelta[i]) < 0.0) {
           vo_SMB_FastDelta[i] = layi.vs_SMB_Fast;
@@ -1113,12 +1145,14 @@ void SoilOrganic::fo_MIT() {
   for (int i = 0; i < nools; i++) {
     vo_SMB_SlowCO2EvolutionRate[i] = ((1.0 - po_SOM_SlowUtilizationEfficiency)
                                       * vo_SOM_SlowDecRate[i])
-                                     + ((1.0 - po_SOM_FastUtilizationEfficiency) * (1.0 - po_PartSOM_Fast_to_SOM_Slow)
+                                     + ((1.0 - po_SOM_FastUtilizationEfficiency) * (1.0 - partSOM_FastDec_to_SOM_Slow)
                                         * vo_SOM_FastDecRate[i])
                                      //+ ((1.0 - po_AOM_SlowUtilizationEfficiency) * vo_AOM_SlowDecRateSum[i])
                                      + ((1.0 - po_AOM_SlowUtilizationEfficiency) * AOMslow_to_SMBslow[i])
                                      + vo_SMB_SlowMaintRate[i];
 
+    // note: the original SMB_fast respiration term uses PartSMB_Fast_to_SOM_Fast for the fast SMB pool,
+    // which is consistent with smbDeathRecycled() in the Laub et al. (2020) structure
     vo_SMB_FastCO2EvolutionRate[i] = (1.0 - po_SMB_UtilizationEfficiency)
                                      * (((1.0 - po_PartSMB_Slow_to_SOM_Fast) * vo_SMB_SlowDeathRate[i])
                                         + ((1.0 - po_PartSMB_Fast_to_SOM_Fast) * vo_SMB_FastDeathRate[i]))

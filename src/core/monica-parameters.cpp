@@ -2416,6 +2416,7 @@ Errors SoilOrganicModuleParameters::merge(json11::Json j) {
   set_bool_value(__enable_kaiteew_TempOnDecompostion__, j, "__enable_kaiteew_TempOnDecompostion__");
   set_bool_value(__enable_kaiteew_MoistOnDecompostion__, j, "__enable_kaiteew_MoistOnDecompostion__");
   set_bool_value(__enable_kaiteew_ClayOnDecompostion__, j, "__enable_kaiteew_ClayOnDecompostion__");
+  set_bool_value(__enable_laub_SOM_flow__, j, "__enable_laub_SOM_flow__");
 
   if (j["stics"].is_object()) res.append(sticsParams.merge(j["stics"]));
 
@@ -2464,7 +2465,8 @@ json11::Json SoilOrganicModuleParameters::to_json() const {
     {"AtmosphericResistance", J11Array{po_AtmosphericResistance, "s m-1"}},
     {"N2OProductionRate", J11Array{po_N2OProductionRate, "d-1"}},
     {"Inhibitor_NH3", J11Array{po_Inhibitor_NH3, "kg N m-3"}},
-    {"MaxMineralisationDepth", ps_MaxMineralisationDepth}
+    {"MaxMineralisationDepth", ps_MaxMineralisationDepth},
+    {"__enable_laub_SOM_flow__", __enable_laub_SOM_flow__}
   };
 }
 
