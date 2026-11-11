@@ -913,14 +913,16 @@ void SoilOrganic::fo_MIT() {
            + po_PartSMB_Fast_to_SOM_Fast * vo_SMB_FastDeathRate[i];
   };
 
-  // dead SMB carbon not entering SOM, which is recycled by SMB_fast (and partly respired) [kg C m-3 d-1]
-  auto smbDeathRecycled = [&](int i) {
+  // dead SMB carbon not entering SOM, which is utilised by SMB_fast [kg C m-3 d-1]
+  auto smbDeathRecycledToSMB_Fast = [&](int i) {
     // the original formulation applies (1 - PartSMB_Slow_to_SOM_Fast) to both SMB pools,
-    // which is identical to the formulation below as long as PartSMB_Slow_to_SOM_Fast == PartSMB_Fast_to_SOM_Fast
+    // which is identical to the Laub formulation as long as PartSMB_Slow_to_SOM_Fast == PartSMB_Fast_to_SOM_Fast
+    // (kept with the original order of operations, to keep results bit-identical)
     return laubSOMFlow
-           ? (1.0 - po_PartSMB_Slow_to_SOM_Fast) * vo_SMB_SlowDeathRate[i]
-             + (1.0 - po_PartSMB_Fast_to_SOM_Fast) * vo_SMB_FastDeathRate[i]
-           : (1.0 - po_PartSMB_Slow_to_SOM_Fast) * (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i]);
+           ? po_SMB_UtilizationEfficiency * ((1.0 - po_PartSMB_Slow_to_SOM_Fast) * vo_SMB_SlowDeathRate[i]
+                                             + (1.0 - po_PartSMB_Fast_to_SOM_Fast) * vo_SMB_FastDeathRate[i])
+           : po_SMB_UtilizationEfficiency * (1.0 - po_PartSMB_Slow_to_SOM_Fast)
+             * (vo_SMB_SlowDeathRate[i] + vo_SMB_FastDeathRate[i]);
   };
 
   auto calcSMB_SlowDelta = [&](int i) {
@@ -933,7 +935,7 @@ void SoilOrganic::fo_MIT() {
   };
 
   auto calcSMB_FastDelta = [&](int i) {
-    return (po_SMB_UtilizationEfficiency * smbDeathRecycled(i))
+    return smbDeathRecycledToSMB_Fast(i)
            //+ (po_AOM_FastUtilizationEfficiency * vo_AOM_FastDecRateSum[i])
            + (po_AOM_FastUtilizationEfficiency * AOMfast_to_SMBfast[i])
            + (po_AOM_SlowUtilizationEfficiency * AOMslow_to_SMBfast[i])
@@ -1152,7 +1154,7 @@ void SoilOrganic::fo_MIT() {
                                      + vo_SMB_SlowMaintRate[i];
 
     // note: the original SMB_fast respiration term uses PartSMB_Fast_to_SOM_Fast for the fast SMB pool,
-    // which is consistent with smbDeathRecycled() in the Laub et al. (2020) structure
+    // which is consistent with smbDeathRecycledToSMB_Fast() in the Laub et al. (2020) structure
     vo_SMB_FastCO2EvolutionRate[i] = (1.0 - po_SMB_UtilizationEfficiency)
                                      * (((1.0 - po_PartSMB_Slow_to_SOM_Fast) * vo_SMB_SlowDeathRate[i])
                                         + ((1.0 - po_PartSMB_Fast_to_SOM_Fast) * vo_SMB_FastDeathRate[i]))
