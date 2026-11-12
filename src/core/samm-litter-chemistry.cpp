@@ -13,11 +13,97 @@ namespace samm {
 
 namespace {
 const std::vector<LitterChemistry> RESIDUES = {
-
+  {"alfalfa", 0.097, 0.01, 0.137, 0.0158},
+  {"amaranth", 0.07, 0.008, 0.137, 0.01},
+  {"artichoke", 0.08, 0.01, 0.14, 0.0096},
+  {"asparagus", 0.12, 0.01, 0.137, 0.01},
+  {"barley", 0.073, 0.005, 0.096, 0.007},
+  {"beans", 0.12, 0.01, 0.124, 0.0066},
+  {"beet", 0.055, 0.01, 0.137, 0.01},
+  {"bellsweetpepper", 0.09, 0.01, 0.137, 0.01},
+  {"brusselssprouts", 0.101, 0.01, 0.29, 0.0047},
+  {"buckwheat", 0.07, 0.008, 0.097, 0.0091},
+  {"cabbage", 0.034, 0.01, 0.29, 0.0047},
+  {"calabres", 0.06, 0.01, 0.29, 0.0047},
+  {"carrot", 0.038, 0.01, 0.137, 0.01},
+  {"cauliflower", 0.034, 0.01, 0.29, 0.0047},
+  {"celery", 0.04, 0.01, 0.137, 0.01},
+  {"clovergrassley", 0.04, 0.01, 0.12, 0.012},
+  {"cotton", 0.2, 0.015, 0.2, 0.01},
+  {"courgettezucchini", 0.06, 0.01, 0.137, 0.01},
+  {"cucumber", 0.06, 0.01, 0.137, 0.01},
+  {"eggplantaubergine", 0.09, 0.01, 0.137, 0.01},
+  {"endive", 0.014, 0.01, 0.137, 0.01},
+  {"fennel", 0.04, 0.01, 0.137, 0.01},
+  {"flaxseed", 0.111, 0.008, 0.137, 0.01},
+  {"frenchbeans", 0.131, 0.01, 0.124, 0.0066},
+  {"garlic", 0.06, 0.01, 0.137, 0.01},
+  {"grapevine", 0.25, 0.03, 0.25, 0.02},
+  {"grassley", 0.033, 0.008, 0.105, 0.0084},
+  {"hemp", 0.117, 0.008, 0.137, 0.01},
+  {"kale", 0.04, 0.01, 0.29, 0.0047},
+  {"leek", 0.169, 0.01, 0.137, 0.01},
+  {"lettuce", 0.02, 0.01, 0.137, 0.01},
+  {"lupine", 0.101, 0.01, 0.137, 0.0158},
+  {"maize", 0.052, 0.006, 0.077, 0.0079},
+  {"melon", 0.06, 0.01, 0.137, 0.01},
+  {"mustard", 0.073, 0.007, 0.134, 0.0047},
+  {"naturalweeds", 0.055, 0.01, 0.137, 0.01},
+  {"oat", 0.066, 0.005, 0.073, 0.0054},
+  {"oilradish", 0.045, 0.007, 0.126, 0.0057},
+  {"onion", 0.06, 0.01, 0.137, 0.01},
+  {"parsley", 0.038, 0.01, 0.137, 0.01},
+  {"parsnip", 0.038, 0.01, 0.137, 0.01},
+  {"pea", 0.111, 0.01, 0.105, 0.0395},
+  {"phacelia", 0.085, 0.008, 0.137, 0.01},
+  {"potato", 0.091, 0.008, 0.137, 0.01},
+  {"pureclover", 0.05, 0.012, 0.137, 0.0158},
+  {"radicchio", 0.014, 0.01, 0.137, 0.01},
+  {"radish", 0.045, 0.007, 0.126, 0.0057},
+  {"rape", 0.125, 0.007, 0.157, 0.0037},
+  {"rye", 0.07, 0.005, 0.125, 0.0051},
+  {"seradella", 0.06, 0.012, 0.137, 0.0158},
+  {"sorghum", 0.077, 0.01, 0.088, 0.0175},
+  {"soybean", 0.111, 0.01, 0.188, 0.007},
+  {"spinach", 0.02, 0.01, 0.137, 0.01},
+  {"springonion", 0.06, 0.01, 0.137, 0.01},
+  {"squash", 0.06, 0.01, 0.137, 0.01},
+  {"strawberrie", 0.08, 0.02, 0.137, 0.01},
+  {"sudangras", 0.077, 0.01, 0.088, 0.0175},
+  {"sugarcane", 0.08, 0.006, 0.09, 0.0091},
+  {"sunflower", 0.138, 0.008, 0.14, 0.0096},
+  {"tomato", 0.09, 0.01, 0.137, 0.01},
+  {"triticale", 0.073, 0.005, 0.088, 0.012},
+  {"turnip", 0.045, 0.007, 0.134, 0.0047},
+  {"watermelon", 0.06, 0.01, 0.137, 0.01},
+  {"wheat", 0.073, 0.005, 0.142, 0.0086},
 };
 
 const std::vector<LitterChemistry> FERTILISERS = {
-
+  {"ash", 0.0, 0.0, 0.0, 0.0},
+  {"cadlm", 0.15, 0.005, 0.0, 0.0},
+  {"cam", 0.148, 0.005, 0.0, 0.0},
+  {"cas", 0.11, 0.005, 0.0, 0.0},
+  {"cau", 0.0, 0.0, 0.0, 0.0},
+  {"dgdlm", 0.11, 0.005, 0.0, 0.0},
+  {"gwc", 0.15, 0.005, 0.0, 0.0},
+  {"hodlm", 0.15, 0.005, 0.0, 0.0},
+  {"mc", 0.13, 0.005, 0.0, 0.0},
+  {"ms", 0.052, 0.006, 0.0, 0.0},
+  {"oic", 0.08, 0.01, 0.0, 0.0},
+  {"pidlm", 0.126, 0.005, 0.0, 0.0},
+  {"pim", 0.1, 0.005, 0.0, 0.0},
+  {"pis", 0.093, 0.005, 0.0, 0.0},
+  {"piu", 0.0, 0.0, 0.0, 0.0},
+  {"piudk", 0.093, 0.005, 0.0, 0.0},
+  {"plw", 0.02, 0.005, 0.0, 0.0},
+  {"podlm", 0.11, 0.005, 0.0, 0.0},
+  {"pom", 0.11, 0.005, 0.0, 0.0},
+  {"soy", 0.111, 0.01, 0.0, 0.0},
+  {"ss", 0.065, 0.005, 0.0, 0.0},
+  {"tudlm", 0.11, 0.005, 0.0, 0.0},
+  {"weeds", 0.055, 0.01, 0.0, 0.0},
+  {"ws", 0.073, 0.005, 0.0, 0.0},
 };
 
 const LitterChemistry* find(const std::vector<LitterChemistry>& table, const std::string& key) {
@@ -38,12 +124,12 @@ const LitterChemistry* residueChemistry(const std::string& species) { return fin
 const LitterChemistry* fertiliserChemistry(const std::string& id) { return find(FERTILISERS, id); }
 
 const LitterChemistry& defaultResidueChemistry() {
-  static const LitterChemistry c{"default_residue", 0.07, 0.01, 0.12, 0.01};
+  static const LitterChemistry c{"default_residue", 0.08, 0.008, 0.12, 0.009};
   return c;
 }
 
 const LitterChemistry& defaultFertiliserChemistry() {
-  static const LitterChemistry c{"default_fertiliser", 0.15, 0.01, 0.0, 0.0};
+  static const LitterChemistry c{"default_fertiliser", 0.12, 0.005, 0.0, 0.0};
   return c;
 }
 
