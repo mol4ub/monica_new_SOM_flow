@@ -9,8 +9,11 @@
 // usage: samm_calib <climate_file.csv> <AllMeasurements.csv> <mode> [options]
 //   modes:  eval <params.csv> <out.csv>    run one parameter set, write daily pools of all treatments
 //           ga <out_prefix>                genetic algorithm, writes <prefix>_best.csv and <prefix>_log.csv
+//           sir <prior.csv> <samples.csv>  draws --n parameter sets from the prior (name,mean,sd,lo,hi: normal, truncated
+//                                          to [lo,hi]) and writes each set with its log-likelihood (resampling:
+//                                          sir_resample.py)
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
-//            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45)
+//            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000)
 #include "samm.h"
 
 #include <algorithm>
@@ -274,6 +277,7 @@ int main(int argc, char** argv) {
   const std::string mode = argv[3];
   Config cfg; int threads = std::max(1u, std::thread::hardware_concurrency()), pop = 100, gens = 300;
   unsigned seed = 1;
+  long nSir = 200000;
   std::vector<std::string> pos;
   for (int a = 4; a < argc; a++) {
     std::string s = argv[a];
@@ -284,6 +288,7 @@ int main(int argc, char** argv) {
     else if (s == "--seed") seed = std::stoul(argv[++a]);
     else if (s == "--thetaSat") cfg.thetaSat = std::stod(argv[++a]);
     else if (s == "--moistOpt") cfg.moistOpt = std::stod(argv[++a]);
+    else if (s == "--n") nSir = std::stol(argv[++a]);
     else pos.push_back(s);
   }
   std::fprintf(stderr, "median variances:");
@@ -378,6 +383,43 @@ int main(int argc, char** argv) {
     }
     writeParams(prefix + "_best.csv", best, bestF);
     std::printf("best logLik %.3f\n", bestF);
+    return 0;
+  }
+
+  if (mode == "sir") {
+    // prior: normal distributions truncated to [lo, hi] (rejection sampling); MicMinCN < MicMaxCN
+    std::map<std::string, std::array<double, 4>> pr;
+    { std::ifstream in(pos.at(0)); std::string line;
+      while (std::getline(in, line)) { auto f = split(line, ','); if (f.size() >= 5 && f[0] != "name")
+        pr[f[0]] = {std::stod(f[1]), std::stod(f[2]), std::stod(f[3]), std::stod(f[4])}; } }
+    for (int i = 0; i < NP; i++) if (!pr.count(pdefs[i].name)) throw std::runtime_error(std::string("prior missing for ") + pdefs[i].name);
+    std::mt19937_64 rng(seed);
+    std::vector<std::vector<double>> X(nSir, std::vector<double>(NP));
+    for (long n = 0; n < nSir; n++) {
+      do {
+        for (int i = 0; i < NP; i++) {
+          const auto& q = pr[pdefs[i].name];
+          std::normal_distribution<double> N(q[0], q[1]);
+          double v; do { v = N(rng); } while (v < q[2] || v > q[3]);
+          X[n][i] = v;
+        }
+      } while (X[n][11] >= X[n][12]);  // MicMinCN < MicMaxCN
+    }
+    std::vector<double> L(nSir);
+    std::atomic<long> next(0), done(0);
+    std::vector<std::thread> th;
+    for (int k = 0; k < threads; k++) th.emplace_back([&]() {
+      for (long i; (i = next++) < nSir;) {
+        L[i] = logLik(X[i], clim, D, cfg);
+        long d = ++done;
+        if (d % 10000 == 0) std::fprintf(stderr, "%ld of %ld simulations\n", d, nSir);
+      }
+    });
+    for (auto& t : th) t.join();
+    std::ofstream out(pos.at(1)); out.precision(10);
+    for (int i = 0; i < NP; i++) out << pdefs[i].name << ",";
+    out << "logLik\n";
+    for (long n = 0; n < nSir; n++) { for (int i = 0; i < NP; i++) out << X[n][i] << ","; out << L[n] << "\n"; }
     return 0;
   }
   std::cerr << "unknown mode " << mode << "\n";
