@@ -16,6 +16,7 @@ Copyright (C) Leibniz Centre for Agricultural Landscape Research (ZALF)
 */
 
 #include "monica-parameters.h"
+#include "samm-litter-chemistry.h"
 
 #include <map>
 #include <sstream>
@@ -1196,7 +1197,23 @@ Errors OrganicMatterParameters::merge(json11::Json j) {
   set_double_value(vo_NConcentration, j, "NConcentration");
   set_double_value(vo_CorgContent, j, "CorgContent");
 
+  set_double_value(samm_Lignin, j, "SAMM_Lignin");
+  set_double_value(samm_Polyphenols, j, "SAMM_Polyphenols");
+  set_double_value(samm_RootLignin, j, "SAMM_RootLignin");
+  set_double_value(samm_RootPolyphenols, j, "SAMM_RootPolyphenols");
+  set_double_value(samm_ShareToLMW, j, "SAMM_ShareToLMW");
+  set_double_value(samm_ShareToMAO, j, "SAMM_ShareToMAO");
+
   return res;
+}
+
+void OrganicMatterParameters::fillSAMMChemistryFromTable(bool isCropResidue, const std::string& key) {
+  const samm::LitterChemistry* lc = isCropResidue ? samm::residueChemistry(key) : samm::fertiliserChemistry(key);
+  if (!lc) lc = isCropResidue ? &samm::defaultResidueChemistry() : &samm::defaultFertiliserChemistry();
+  if (samm_Lignin < 0) samm_Lignin = lc->lignin;
+  if (samm_Polyphenols < 0) samm_Polyphenols = lc->polyphenols;
+  if (samm_RootLignin < 0) samm_RootLignin = lc->rootLignin;
+  if (samm_RootPolyphenols < 0) samm_RootPolyphenols = lc->rootPolyphenols;
 }
 
 json11::Json OrganicMatterParameters::to_json() const {
@@ -1307,7 +1324,13 @@ json11::Json OrganicMatterParameters::to_json() const {
         "Nitrogen content in added organic matter"
       }
     },
-    {"CorgContent", J11Array{vo_CorgContent, "kg C kg DM-1", "Carbon content in added organic matter"}}
+    {"CorgContent", J11Array{vo_CorgContent, "kg C kg DM-1", "Carbon content in added organic matter"}},
+    {"SAMM_Lignin", J11Array{samm_Lignin, "kg kg DM-1", "lignin content (SAMM)"}},
+    {"SAMM_Polyphenols", J11Array{samm_Polyphenols, "kg kg DM-1", "polyphenol content (SAMM)"}},
+    {"SAMM_RootLignin", J11Array{samm_RootLignin, "kg kg DM-1", "lignin content of roots (SAMM)"}},
+    {"SAMM_RootPolyphenols", J11Array{samm_RootPolyphenols, "kg kg DM-1", "polyphenol content of roots (SAMM)"}},
+    {"SAMM_ShareToLMW", J11Array{samm_ShareToLMW, "kg kg-1", "share of added C going to LMW (SAMM)"}},
+    {"SAMM_ShareToMAO", J11Array{samm_ShareToMAO, "kg kg-1", "share of added C going to MAO (SAMM)"}}
   };
 }
 
@@ -1316,6 +1339,7 @@ void OrganicFertilizerParameters::deserialize(
   OrganicMatterParameters::deserialize(reader.getParams());
   id = reader.getId();
   name = reader.getName();
+  fillSAMMChemistryFromTable(false, id);
 }
 
 void OrganicFertilizerParameters::serialize(
@@ -1336,6 +1360,7 @@ Errors OrganicFertilizerParameters::merge(json11::Json j) {
 
   set_string_value(id, j, "id");
   set_string_value(name, j, "name");
+  fillSAMMChemistryFromTable(false, id);
 
   return res;
 }
@@ -1352,6 +1377,7 @@ void CropResidueParameters::deserialize(mas::schema::model::monica::CropResidueP
   OrganicMatterParameters::deserialize(reader.getParams());
   species = reader.getSpecies();
   residueType = reader.getResidueType();
+  fillSAMMChemistryFromTable(true, species);
 }
 
 void CropResidueParameters::serialize(mas::schema::model::monica::CropResidueParameters::Builder builder) const {
@@ -1370,6 +1396,7 @@ Errors CropResidueParameters::merge(json11::Json j) {
   res.append(OrganicMatterParameters::merge(j));
   set_string_value(species, j, "species");
   set_string_value(residueType, j, "residueType");
+  fillSAMMChemistryFromTable(true, species);
 
   return res;
 }
@@ -2279,6 +2306,90 @@ json11::Json SticsParameters::to_json() const {
 
 //-----------------------------------------------------------------------------
 
+namespace {
+// SAMM parameters by their names in the R code
+std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
+  return {
+    {"k_STR", &samm::Params::k_STR}, {"k_LAB", &samm::Params::k_LAB}, {"k_MIC", &samm::Params::k_MIC},
+    {"k_MAO", &samm::Params::k_MAO}, {"mu_max", &samm::Params::mu_max}, {"kAgg", &samm::Params::kAgg},
+    {"K_M_MIC_C", &samm::Params::K_M_MIC_C}, {"m_MIC", &samm::Params::m_MIC},
+    {"K_LMW_MAO", &samm::Params::K_LMW_MAO}, {"c_SORP", &samm::Params::c_SORP},
+    {"CUE_STR", &samm::Params::CUE_STR}, {"CUE_LAB", &samm::Params::CUE_LAB}, {"CUE_LMW", &samm::Params::CUE_LMW},
+    {"MicMinCN", &samm::Params::MicMinCN}, {"MicMaxCN", &samm::Params::MicMaxCN},
+    {"f_MICMAOM", &samm::Params::f_MICMAOM}, {"pc_STR_LAB", &samm::Params::pc_STR_LAB},
+    {"aggfactSTR_C", &samm::Params::aggfactSTR_C}, {"aggfactMAO_C", &samm::Params::aggfactMAO_C},
+    {"NonMicAgg", &samm::Params::NonMicAgg}, {"refDepth", &samm::Params::refDepth},
+    {"a_MIC_min", &samm::Params::a_MIC_min}, {"leachCap", &samm::Params::leachCap},
+    {"f_min", &samm::Params::f_min}, {"f_turn", &samm::Params::f_turn},
+    {"min_imm_frac", &samm::Params::min_imm_frac}, {"min_imm_k", &samm::Params::min_imm_k},
+    {"k_des", &samm::Params::k_des}
+  };
+}
+
+std::vector<std::pair<const char*, double SAMMSettings::*>> sammSettingMembers() {
+  return {
+    {"rateScaleMONICA", &SAMMSettings::rateScaleMONICA},
+    {"tillageAggregateDestruction", &SAMMSettings::tillageAggregateDestruction},
+    {"init_fLMW", &SAMMSettings::init_fLMW}, {"init_fMIC", &SAMMSettings::init_fMIC},
+    {"init_fAggLitter", &SAMMSettings::init_fAggLitter}, {"init_AggLitterSTR", &SAMMSettings::init_AggLitterSTR},
+    {"init_fMAOfree", &SAMMSettings::init_fMAOfree}, {"init_freeLitter", &SAMMSettings::init_freeLitter},
+    {"init_freeLitterSTR", &SAMMSettings::init_freeLitterSTR}, {"init_CN_MAO", &SAMMSettings::init_CN_MAO},
+    {"init_CN_MIC", &SAMMSettings::init_CN_MIC}, {"init_CN_LMW", &SAMMSettings::init_CN_LMW},
+    {"init_CN_Litter", &SAMMSettings::init_CN_Litter},
+    {"spinup_InputC", &SAMMSettings::spinup_InputC}, {"spinup_InputCN", &SAMMSettings::spinup_InputCN},
+    {"spinup_InputSTR", &SAMMSettings::spinup_InputSTR}, {"spinup_CorrF", &SAMMSettings::spinup_CorrF},
+    {"cSorp", &SAMMSettings::cSorp}, {"clayKaolinite", &SAMMSettings::clayKaolinite},
+    {"clayMicaOxides", &SAMMSettings::clayMicaOxides}, {"cSorpKaolinite", &SAMMSettings::cSorpKaolinite},
+    {"cSorpMicaOxides", &SAMMSettings::cSorpMicaOxides}, {"cSorp1to1", &SAMMSettings::cSorp1to1},
+    {"cSorp2to1", &SAMMSettings::cSorp2to1},
+    {"dailyLitterC", &SAMMSettings::dailyLitterC}, {"dailyLitterCN", &SAMMSettings::dailyLitterCN},
+    {"dailyLitterSTR", &SAMMSettings::dailyLitterSTR},
+    {"deepConcC", &SAMMSettings::deepConcC}, {"deepConcN", &SAMMSettings::deepConcN}
+  };
+}
+} // namespace
+
+double SAMMSettings::effectiveCSorp() const {
+  if (cSorp >= 0) return cSorp;
+  if (clayKaolinite >= 0 && clayMicaOxides >= 0 && clayKaolinite + clayMicaOxides > 0) {
+    return (clayKaolinite * cSorpKaolinite + clayMicaOxides * cSorpMicaOxides) / (clayKaolinite + clayMicaOxides);
+  }
+  if (latitude < -90 || latitude > 90) return (cSorp1to1 + cSorp2to1) / 2.0; // unknown location
+  return std::abs(latitude) <= 23.44 ? cSorp1to1 : cSorp2to1;
+}
+
+Errors SAMMSettings::merge(json11::Json j) {
+  Errors res;
+  // the variant sets the default parameter set, single parameters given afterwards override it
+  if (j["variant"].is_string()) {
+    variant = j["variant"].string_value();
+    if (variant == "SAMMnoAgg") params = samm::Params::sammNoAgg_v11();
+    else if (variant == "SAMM") params = samm::Params::samm_v11();
+    else res.errors.push_back(std::string("SAMM: unknown variant '") + variant + "' (SAMM or SAMMnoAgg)");
+  }
+  auto pj = j["params"].is_object() ? j["params"] : j;
+  for (const auto& [name, member] : sammParamMembers()) set_double_value(params.*member, pj, name);
+  for (const auto& [name, member] : sammSettingMembers()) set_double_value(this->*member, j, name);
+  set_string_value(rateModifiers, j, "rateModifiers");
+  if (rateModifiers != "MONICA" && rateModifiers != "SAMM") {
+    res.errors.push_back(std::string("SAMM: unknown rateModifiers '") + rateModifiers + "' (MONICA or SAMM)");
+  }
+  set_bool_value(spinup, j, "spinup");
+  set_int_value(spinup_MaxYears, j, "spinup_MaxYears");
+  return res;
+}
+
+json11::Json SAMMSettings::to_json() const {
+  json11::Json::object po;
+  for (const auto& [name, member] : sammParamMembers()) po[name] = params.*member;
+  json11::Json::object o{
+    {"variant", variant}, {"params", po}, {"rateModifiers", rateModifiers}, {"spinup", spinup},
+    {"spinup_MaxYears", spinup_MaxYears}
+  };
+  for (const auto& [name, member] : sammSettingMembers()) o[name] = this->*member;
+  return o;
+}
+
 void SoilOrganicModuleParameters::deserialize(mas::schema::model::monica::SoilOrganicModuleParameters::Reader reader) {
   po_SOM_SlowDecCoeffStandard = reader.getSomSlowDecCoeffStandard();
   po_SOM_FastDecCoeffStandard = reader.getSomFastDecCoeffStandard();
@@ -2418,6 +2529,9 @@ Errors SoilOrganicModuleParameters::merge(json11::Json j) {
   set_bool_value(__enable_kaiteew_ClayOnDecompostion__, j, "__enable_kaiteew_ClayOnDecompostion__");
   set_bool_value(__enable_laub_SOM_flow__, j, "__enable_laub_SOM_flow__");
 
+  set_string_value(somModel, j, "SOM_Model");
+  if (j["SAMM"].is_object()) res.append(samm.merge(j["SAMM"]));
+
   if (j["stics"].is_object()) res.append(sticsParams.merge(j["stics"]));
 
   return res;
@@ -2466,7 +2580,9 @@ json11::Json SoilOrganicModuleParameters::to_json() const {
     {"N2OProductionRate", J11Array{po_N2OProductionRate, "d-1"}},
     {"Inhibitor_NH3", J11Array{po_Inhibitor_NH3, "kg N m-3"}},
     {"MaxMineralisationDepth", ps_MaxMineralisationDepth},
-    {"__enable_laub_SOM_flow__", __enable_laub_SOM_flow__}
+    {"__enable_laub_SOM_flow__", __enable_laub_SOM_flow__},
+    {"SOM_Model", somModel},
+    {"SAMM", samm.to_json()}
   };
 }
 

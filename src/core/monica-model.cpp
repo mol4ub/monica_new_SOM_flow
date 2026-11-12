@@ -61,6 +61,14 @@ struct AddFertiliserAmountsCallback {
 }
 
 
+namespace {
+//! SAMM chooses its default sorption capacity by the site's latitude
+SoilOrganicModuleParameters withSiteLatitude(SoilOrganicModuleParameters ps, double latitude) {
+  ps.samm.latitude = latitude;
+  return ps;
+}
+}
+
 MonicaModel::MonicaModel(const CentralParameterProvider& cpp)
 : _sitePs(kj::mv(cpp.siteParameters))
 , _envPs(kj::mv(cpp.userEnvironmentParameters))
@@ -74,7 +82,8 @@ MonicaModel::MonicaModel(const CentralParameterProvider& cpp)
 //cpp.userSoilMoistureParameters.pm_CriticalMoistureDepth)),
 _soilTemperature(kj::heap<SoilTemperature>(*this, cpp.userSoilTemperatureParameters))
 , _soilMoisture(kj::heap<SoilMoisture>(*this, cpp.userSoilMoistureParameters))
-, _soilOrganic(kj::heap<SoilOrganic>(*_soilColumn, cpp.userSoilOrganicParameters))
+, _soilOrganic(kj::heap<SoilOrganic>(*_soilColumn, withSiteLatitude(cpp.userSoilOrganicParameters,
+                                                                         cpp.siteParameters.vs_Latitude)))
 , _soilTransport(kj::heap<SoilTransport>(*_soilColumn, _sitePs, cpp.userSoilTransportParameters,
                                          _envPs.p_LeachingDepth, _envPs.p_timeStep, _cropPs.pc_MinimumAvailableN)) {}
 
@@ -89,10 +98,11 @@ void MonicaModel::deserialize(mas::schema::model::monica::MonicaModelState::Read
   else _soilColumn = kj::heap<SoilColumn>(reader.getSoilColumn());
 
   if (reader.hasCurrentCropModule()) {
-    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nconc) {
+    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nconc, bool isRootInput) {
       this->_soilOrganic->addOrganicMatter(this->_currentCropModule->residueParameters(),
                                            layer2amount,
-                                           nconc);
+                                           nconc,
+                                           isRootInput);
     };
     _currentCropModule = nullptr;
     _currentCropModule = kj::heap<CropModule>(*_soilColumn, _cropPs,
@@ -277,10 +287,11 @@ void MonicaModel::seedCrop(mas::schema::model::monica::CropSpec::Reader reader) 
 
     _cultivationMethodCount++;
 
-    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nConcentration) {
+    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nConcentration, bool isRootInput) {
       this->_soilOrganic->addOrganicMatter(_currentCropModule->residueParameters(),
                                            layer2amount,
-                                           nConcentration);
+                                           nConcentration,
+                                           isRootInput);
     };
     CropParameters cps(reader.getCropParams());
     _currentCropModule = nullptr;
@@ -332,10 +343,11 @@ void MonicaModel::seedCrop(Crop* crop) {
   if (crop->isValid()) {
     _cultivationMethodCount++;
 
-    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nconc) {
+    auto addOMFunc = [this](const std::map<size_t, double>& layer2amount, double nconc, bool isRootInput) {
       this->_soilOrganic->addOrganicMatter(_currentCropModule->residueParameters(),
                                            layer2amount,
-                                           nconc);
+                                           nconc,
+                                           isRootInput);
     };
     auto cps = crop->cropParameters();
     _currentCropModule = nullptr;
@@ -634,6 +646,7 @@ void MonicaModel::applyIrrigation(double amount, double nitrateConcentration,
  */
 void MonicaModel::applyTillage(double depth) {
   _soilColumn->applyTillage(depth);
+  _soilOrganic->applyTillage(depth); // SAMM only: aggregate destruction and mixing of its pools
 }
 
 void MonicaModel::step() {

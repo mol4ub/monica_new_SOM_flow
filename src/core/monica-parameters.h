@@ -39,6 +39,7 @@ Copyright (C) Leibniz Centre for Agricultural Landscape Research (ZALF)
 #include "json11/json11-helper.h"
 #include "soil/soil.h"
 #include "soil/constants.h"
+#include "samm.h"
 
 namespace monica {
 class CentralParameterProvider;
@@ -605,6 +606,19 @@ struct DLL_API OrganicMatterParameters : public Tools::Json11Serializable {
   double vo_PartAOM_Slow_to_SMB_Fast{0.0}; //!< Part of AOM slow consumed by fast soil microbial biomass [kg kg-1]
 
   double vo_NConcentration{0.0};
+
+  // litter chemistry for the SAMM soil organic matter module (only used with "SOM_Model": "SAMM")
+  // values < 0 mean "not given": then the built-in table (samm-litter-chemistry.cpp) is used,
+  // looked up by crop residue species or organic fertiliser id
+  double samm_Lignin{-1.0}; //!< lignin content [kg kg-1 DM]
+  double samm_Polyphenols{-1.0}; //!< polyphenol content [kg kg-1 DM]
+  double samm_RootLignin{-1.0}; //!< lignin content of roots [kg kg-1 DM] (crop residues only)
+  double samm_RootPolyphenols{-1.0}; //!< polyphenol content of roots [kg kg-1 DM] (crop residues only)
+  double samm_ShareToLMW{0.0}; //!< share of the added C (and N) going directly to the LMW pool [kg kg-1]
+  double samm_ShareToMAO{0.0}; //!< share of the added C (and N) going directly to the MAO pool [kg kg-1]
+
+  //! fill the SAMM chemistry values that are not given from the built-in table
+  void fillSAMMChemistryFromTable(bool isCropResidue, const std::string& key);
 };
 
 typedef std::shared_ptr<OrganicMatterParameters> OrganicMatterParametersPtr;
@@ -970,6 +984,72 @@ struct DLL_API SticsParameters : public Tools::Json11Serializable {
   double vpotdenit{2.0}; // [kg N/ha/day]
 };
 
+/**
+ * Settings of the SAMM soil organic matter module (used with "SOM_Model": "SAMM").
+ * Read from the object "SAMM" in the soil organic parameters, see documentation/samm.md.
+ */
+struct DLL_API SAMMSettings {
+  //! "SAMM" (with aggregates, default) or "SAMMnoAgg": selects the default parameter set
+  std::string variant{"SAMM"};
+  samm::Params params{samm::Params::samm_v11()};
+
+  //! "MONICA": MONICA's temperature and moisture functions (as for DAISY), with all SAMM rates multiplied by
+  //! rateScaleMONICA, so that the mean rates over the Khon Kaen calibration period are the same as with SAMM's
+  //! own functions; "SAMM": the functions of the SAMM paper (2^((T-20)/10) and the pF scalar)
+  std::string rateModifiers{"MONICA"};
+  double rateScaleMONICA{1.0};  // set in the constructor, see monica-parameters.cpp
+
+  //! fraction of the aggregate pools released to the free pools in the tilled layers per tillage event
+  double tillageAggregateDestruction{0.20};
+
+  // initialisation from the measured SOC of each layer (fractions of SOC; SOC excludes free litter)
+  double init_fLMW{0.005};       //!< LMW-C
+  double init_fMIC{0.02};        //!< MIC-C
+  double init_fAggLitter{0.10};  //!< AggSTR-C + AggLAB-C; MAO-C + AggMAO-C get the rest
+  double init_AggLitterSTR{0.10};//!< STR share of the aggregate litter
+  double init_fMAOfree{0.60};    //!< free share of MAO-C + AggMAO-C
+  double init_freeLitter{0.03};  //!< free litter STR-C + LAB-C, in addition to SOC [fraction of SOC]
+  double init_freeLitterSTR{0.16}; //!< STR share of the free litter
+  double init_CN_MAO{9.0};       //!< C:N of MAO and AggMAO; <= 0: the layer's soil C:N
+  double init_CN_MIC{10.0};
+  double init_CN_LMW{20.0};
+  double init_CN_Litter{142.9};  //!< C:N of LAB and AggLAB
+
+  // optional spin-up of the pool partitioning (then scaled to the measured SOC of each layer)
+  bool spinup{false};
+  double spinup_InputC{2000.0};  //!< annual C input over the organic layers [kg C ha-1 yr-1]
+  double spinup_InputCN{50.0};
+  double spinup_InputSTR{0.15};  //!< structural share of the input C
+  double spinup_CorrF{0.5};      //!< constant rate modifier during the spin-up
+  int spinup_MaxYears{5000};
+
+  // maximum sorption capacity c_SORP [kg C kg-1 silt+clay]: explicit value, else from the clay mineralogy,
+  // else from the latitude (tropics: 1:1 clays, elsewhere: 2:1 clays)
+  double cSorp{-1.0};
+  double clayKaolinite{-1.0};    //!< share of kaolinite in the clay fraction (XRD) [-]
+  double clayMicaOxides{-1.0};   //!< share of mica, hematite, goethite and gibbsite in the clay fraction [-]
+  double cSorpKaolinite{0.049};  //!< Georgiou et al. (2025)
+  double cSorpMicaOxides{0.085};
+  double cSorp1to1{0.049};       //!< default for tropical sites (|latitude| <= 23.44)
+  double cSorp2to1{0.083};       //!< default for other sites
+  double latitude{-999};         //!< set by MONICA from the site parameters
+
+  // constant daily litter input of the SAMM paper (unavoidable plant growth); 0 = off (MONICA's crop gives roots)
+  double dailyLitterC{0.0};      //!< [kg C ha-1 d-1] over the organic layers
+  double dailyLitterCN{142.9};
+  double dailyLitterSTR{0.16};
+
+  //! LMW concentration of water entering the bottom organic layer from below [kg kg-1]
+  double deepConcC{0.0};
+  double deepConcN{0.0};
+
+  //! c_SORP to be used
+  double effectiveCSorp() const;
+
+  Tools::Errors merge(json11::Json j);
+  json11::Json to_json() const;
+};
+
 
 /**
  * Class that holds information about user-defined soil organic parameters.
@@ -1046,6 +1126,11 @@ struct DLL_API SoilOrganicModuleParameters : public Tools::Json11Serializable {
   //                  goes into SOM_slow and the rest into SOM_fast. Decomposed SOM_fast is fully
   //                  utilised by SMB_slow (and respired as CO2).
   bool __enable_laub_SOM_flow__{false};
+
+  //! soil organic matter model: "DAISY" (default) or "SAMM" (Laub et al. 2024, see documentation/samm.md)
+  std::string somModel{"DAISY"};
+  SAMMSettings samm;
+
   SticsParameters sticsParams;
 };
 

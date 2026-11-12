@@ -177,6 +177,10 @@ add_library(monica_lib
         src/core/snow-component.cpp
         src/core/soilorganic.h
         src/core/soilorganic.cpp
+        src/core/samm.h
+        src/core/samm.cpp
+        src/core/samm-litter-chemistry.h
+        src/core/samm-litter-chemistry.cpp
         src/core/soiltemperature.h
         src/core/soiltemperature.cpp
         src/core/soiltransport.h

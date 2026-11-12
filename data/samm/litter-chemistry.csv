@@ -1,0 +1,3 @@
+kind,key,name,group,lignin,polyphenols,root_lignin,root_polyphenols,sources,notes
+default_residue,default,unknown crop residue,,0.07,0.01,0.12,0.01,placeholder,to be replaced by researched values
+default_fertiliser,default,unknown organic fertiliser,,0.15,0.01,0,0,placeholder,to be replaced by researched values

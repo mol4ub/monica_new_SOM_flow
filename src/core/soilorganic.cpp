@@ -34,12 +34,19 @@ Copyright (C) Leibniz Centre for Agricultural Landscape Research (ZALF)
 #include "soil/constants.h"
 #include "tools/algorithms.h"
 #include "stics-nit-denit-n2o.h"
+#include "samm-litter-chemistry.h"
 #include "tools/helper.h"
 
 using namespace std;
 using namespace monica;
 using namespace Tools;
 using namespace Soil;
+
+namespace {
+// [kg ha-1 per layer] <-> [kg m-3]
+inline double kgHa2kgM3(double v, double thickness) { return v / (thickness * 10000.0); }
+inline double kgM32kgHa(double v, double thickness) { return v * thickness * 10000.0; }
+}
 
 /**
  * @brief Constructor
@@ -75,6 +82,15 @@ SoilOrganic::SoilOrganic(SoilColumn &sc, SoilOrganicModuleParameters userParams)
       vo_SOM_FastInput(sc.vs_NumberOfOrganicLayers()),
       vo_SOM_FastDelta(sc.vs_NumberOfOrganicLayers()),
       vo_SOM_SlowDelta(sc.vs_NumberOfOrganicLayers()) {
+  if (_params.somModel == "SAMM") {
+    _samm = true;
+    initSAMM();
+    return;
+  }
+  if (_params.somModel != "DAISY") {
+    cerr << "SoilOrganic: unknown SOM_Model '" << _params.somModel << "', using DAISY" << endl;
+  }
+
   // Subroutine Pool initialisation
   double po_SOM_SlowUtilizationEfficiency = _params.po_SOM_SlowUtilizationEfficiency;
   double po_PartSOM_to_SMB_Slow = _params.po_PartSOM_to_SMB_Slow;
@@ -281,7 +297,8 @@ void SoilOrganic::step(double vw_MeanAirTemperature, double vw_Precipitation,
   //fo_OM_Input(vo_AOM_Addition);
   fo_Urea(vw_Precipitation + irrigationAmount);
   // Mineralisation Immobilisitation Turn-Over
-  fo_MIT();
+  if (_samm) fo_SAMM();
+  else fo_MIT();
   fo_Volatilisation(addedOrganicMatter, vw_MeanAirTemperature, vw_WindSpeed);
 
   if (_params.sticsParams.use_nit) fo_stics_Nitrification();
@@ -297,7 +314,7 @@ void SoilOrganic::step(double vw_MeanAirTemperature, double vw_Precipitation,
   vo_N2O_Produced_Denit = N2OProducedNitDenit.second;
   vo_N2O_Produced = vo_N2O_Produced_Nit + vo_N2O_Produced_Denit;
 
-  fo_PoolUpdate();
+  if (!_samm) fo_PoolUpdate();
 
   vo_NetEcosystemProduction =
       fo_NetEcosystemProduction(vc_NetPrimaryProduction, vo_DecomposerRespiration);
@@ -324,8 +341,14 @@ void SoilOrganic::step(double vw_MeanAirTemperature, double vw_Precipitation,
 
 void SoilOrganic::addOrganicMatter(const OrganicMatterParameters &params,
                                    const map<size_t, double> &layer2addedOrganicMatterAmount,
-                                   double addedOrganicMatterNConcentration) {
+                                   double addedOrganicMatterNConcentration,
+                                   bool isRootInput) {
   debug() << "SoilOrganic: addOrganicMatter: " << params.toString() << endl;
+
+  if (_samm) {
+    addOrganicMatterSAMM(params, layer2addedOrganicMatterAmount, addedOrganicMatterNConcentration, isRootInput);
+    return;
+  }
 
   auto nools = soilColumn.vs_NumberOfOrganicLayers();
   double layerThickness = soilColumn.at(0).vs_LayerThickness;
@@ -2070,6 +2093,10 @@ double SoilOrganic::get_NetEcosystemExchange() const {
 }
 
 double SoilOrganic::get_Organic_N(int i) const {
+  if (_samm) {
+    if (i < 0 || size_t(i) >= _sammPools.size()) return 0.0;
+    return kgHa2kgM3(samm::totalN(_sammPools[i]), soilColumn.at(i).vs_LayerThickness);
+  }
   double orgN = 0;
 
   orgN += get_SMB_Fast(i) / _params.po_CN_Ratio_SMB;
@@ -2085,4 +2112,337 @@ double SoilOrganic::get_Organic_N(int i) const {
   }
 
   return orgN;
+}
+
+//------------------------------------------------------------------------------
+// SAMM soil organic matter module (Laub et al. 2024, v1.1), see samm.h and documentation/samm.md
+//------------------------------------------------------------------------------
+
+
+void SoilOrganic::initSAMM() {
+  const auto& ss = _params.samm;
+  const auto nools = soilColumn.vs_NumberOfOrganicLayers();
+  const double cSorp = ss.effectiveCSorp();
+
+  std::vector<samm::LayerEnv> env(nools);
+  std::vector<double> layerSOC(nools);
+  for (size_t i = 0; i < nools; i++) {
+    auto& layer = soilColumn.at(i);
+    env[i].thickness = layer.vs_LayerThickness;
+    env[i].bulkDensity = layer.vs_SoilBulkDensity();
+    env[i].siltClay = 1.0 - layer.vs_SoilSandContent();
+    env[i].cSorp = cSorp;
+    // [kg C kg-1] * [kg m-3] -> [kg C ha-1 per layer]
+    layerSOC[i] = kgM32kgHa(layer.vs_SoilOrganicCarbon() * layer.vs_SoilBulkDensity(), layer.vs_LayerThickness);
+  }
+  _sammProfile = samm::Profile(ss.params, env);
+
+  // partition the measured SOC of each layer into the SAMM pools
+  _sammPools.assign(nools, samm::LayerPools{});
+  for (size_t i = 0; i < nools; i++) {
+    auto& y = _sammPools[i];
+    const double soc = layerSOC[i];
+    y[samm::LMW_C] = ss.init_fLMW * soc;
+    y[samm::MIC_C] = ss.init_fMIC * soc;
+    const double aggLitter = ss.init_fAggLitter * soc;
+    const double maoTotal = std::max(0.0, soc - y[samm::LMW_C] - y[samm::MIC_C] - aggLitter);
+    y[samm::MAO_C] = ss.init_fMAOfree * maoTotal;
+    y[samm::AggMAO_C] = maoTotal - y[samm::MAO_C];
+    y[samm::AggSTR_C] = ss.init_AggLitterSTR * aggLitter;
+    y[samm::AggLAB_C] = aggLitter - y[samm::AggSTR_C];
+    const double freeLitter = ss.init_freeLitter * soc;
+    y[samm::STR_C] = ss.init_freeLitterSTR * freeLitter;
+    y[samm::LAB_C] = freeLitter - y[samm::STR_C];
+
+    const double cnMAO = ss.init_CN_MAO > 0 ? ss.init_CN_MAO : soilColumn.at(i).vs_Soil_CN_Ratio();
+    y[samm::MAO_N] = y[samm::MAO_C] / cnMAO;
+    y[samm::AggMAO_N] = y[samm::AggMAO_C] / cnMAO;
+    y[samm::MIC_N] = y[samm::MIC_C] / ss.init_CN_MIC;
+    y[samm::LMW_N] = y[samm::LMW_C] / ss.init_CN_LMW;
+    y[samm::LAB_N] = y[samm::LAB_C] / ss.init_CN_Litter;
+    y[samm::AggLAB_N] = y[samm::AggLAB_C] / ss.init_CN_Litter;
+  }
+  if (ss.spinup) spinupSAMM(_sammPools, layerSOC);
+
+  _sammDailyFluxes.assign(nools, samm::LayerFluxes{});
+  for (size_t i = 0; i < nools; i++) {
+    auto& layer = soilColumn.at(i);
+    // DAISY's pools are not used with SAMM
+    layer.vs_SOM_Slow = layer.vs_SOM_Fast = layer.vs_SMB_Slow = layer.vs_SMB_Fast = 0.0;
+    vo_InertSoilOrganicC[i] = 0.0;
+    vo_ActDenitrificationRate.at(i) = 0.0;
+  }
+  updateLayerSOCFromSAMM();
+}
+
+void SoilOrganic::spinupSAMM(std::vector<samm::LayerPools>& pools, const std::vector<double>& layerSOC) {
+  const auto& ss = _params.samm;
+  double socSum = 0;
+  for (double s : layerSOC) socSum += s;
+  if (socSum <= 0) return;
+
+  for (size_t i = 0; i < pools.size(); i++) {
+    if (layerSOC[i] <= 0) continue;
+    // each layer separately, without transport, with an input proportional to its share of the measured SOC
+    samm::Profile layerProfile(ss.params, {_sammProfile.env()[i]});
+    samm::Drivers d;
+    d.layers.resize(1);
+    d.layers[0].corrF = ss.spinup_CorrF;
+    d.waterFlux_mm.assign(1, 0.0);
+    d.inputRates.assign(1, samm::LayerPools{});
+    const double inputC = ss.spinup_InputC * layerSOC[i] / socSum / 365.0;
+    d.inputRates[0][samm::STR_C] = inputC * ss.spinup_InputSTR;
+    d.inputRates[0][samm::LAB_C] = inputC * (1 - ss.spinup_InputSTR);
+    d.inputRates[0][samm::LAB_N] = inputC / ss.spinup_InputCN;
+
+    std::vector<samm::LayerPools> y = {pools[i]};
+    std::vector<samm::LayerFluxes> f(1, samm::LayerFluxes{});
+    int year = 0;
+    for (; year < ss.spinup_MaxYears; year++) {
+      double before = samm::totalC(y[0]);
+      for (int day = 0; day < 365; day++) _sammProfile.stepRK4(y, d, f), f[0].fill(0);
+      if (std::abs(samm::totalC(y[0]) - before) < 1e-5 * std::max(before, 1e-9)) break;
+    }
+    if (year >= ss.spinup_MaxYears) {
+      cerr << "SAMM spin-up of layer " << i << " did not reach a steady state in " << year << " years" << endl;
+    }
+    // scale the steady-state pools to the measured SOC
+    const double soc = samm::socC(y[0]);
+    const double factor = soc > 0 ? layerSOC[i] / soc : 1.0;
+    for (auto& v : y[0]) v *= factor;
+    pools[i] = y[0];
+    debug() << "SAMM spin-up layer " << i << ": " << year << " years, scaled by " << factor << endl;
+  }
+}
+
+void SoilOrganic::updateLayerSOCFromSAMM() {
+  for (size_t i = 0; i < _sammPools.size(); i++) {
+    auto& layer = soilColumn.at(i);
+    // [kg C m-3]
+    vo_SoilOrganicC[i] = kgHa2kgM3(samm::socC(_sammPools[i]), layer.vs_LayerThickness);
+    layer.set_SoilOrganicCarbon(vo_SoilOrganicC[i] / layer.vs_SoilBulkDensity());
+  }
+}
+
+void SoilOrganic::fo_SAMM() {
+  const auto& ss = _params.samm;
+  const auto nools = _sammPools.size();
+  if (nools == 0) return;
+  const bool sammModifiers = ss.rateModifiers == "SAMM";
+
+  samm::Drivers d;
+  d.layers.resize(nools);
+  d.waterFlux_mm.resize(nools);
+  d.deepConcC = ss.deepConcC;
+  d.deepConcN = ss.deepConcN;
+  for (size_t i = 0; i < nools; i++) {
+    auto& layi = soilColumn.at(i);
+    const double h = layi.vs_LayerThickness;
+    const double temp = layi.get_Vs_SoilTemperature();
+    if (sammModifiers) {
+      d.layers[i].corrF = samm::rateModWaterSAMM(layi.vs_SoilMoisture_pF()) * samm::rateModTempSAMM(temp);
+    } else {
+      // the same temperature and moisture functions as DAISY, see fo_MIT()
+      double tod = _params.__enable_kaiteew_TempOnDecompostion__
+                   ? fo_TempOnDecompostion_kaiteew(temp, _params.po_QTenFactor, _params.po_TempDecOptimal)
+                   : fo_TempOnDecompostion(temp);
+      double mod = _params.__enable_kaiteew_MoistOnDecompostion__
+                   ? fo_MoistOnDecompostion_kaiteew(layi.get_Vs_SoilMoisture_m3(), layi.vs_Saturation(),
+                                                    _params.po_MoistureDecOptimal)
+                   : fo_MoistOnDecompostion(layi.vs_SoilMoisture_pF());
+      d.layers[i].corrF = ss.rateScaleMONICA * tod * mod;
+    }
+    d.layers[i].water_kg_ha = layi.get_Vs_SoilMoisture_m3() * h * 10000.0 * 1000.0;
+    d.layers[i].minN_kg_ha = kgM32kgHa(std::max(0.0, layi.vs_SoilNH4) + std::max(0.0, layi.vs_SoilNO3), h);
+    // water flux across the lower boundary of the layer (positive downward), as used by SoilTransport
+    d.waterFlux_mm[i] = i + 1 < soilColumn.vs_NumberOfLayers()
+                        ? soilColumn.at(i + 1).vs_SoilWaterFlux
+                        : soilColumn.vs_FluxAtLowerBoundary;
+  }
+  if (ss.dailyLitterC > 0) {
+    d.inputRates.assign(nools, samm::LayerPools{});
+    for (auto& in : d.inputRates) {
+      const double c = ss.dailyLitterC / double(nools);
+      in[samm::STR_C] = c * ss.dailyLitterSTR;
+      in[samm::LAB_C] = c * (1 - ss.dailyLitterSTR);
+      in[samm::LAB_N] = c / ss.dailyLitterCN;
+    }
+  }
+
+  const auto before = _sammPools;
+  _sammDailyFluxes.assign(nools, samm::LayerFluxes{});
+  _sammProfile.stepRK4(_sammPools, d, _sammDailyFluxes);
+  auto residual = samm::Profile::balanceResidual(before, _sammPools, _sammDailyFluxes);
+  if (std::abs(residual.first) > 1e-6 || std::abs(residual.second) > 1e-6) {
+    debug() << "SAMM: daily balance residual C " << residual.first << " N " << residual.second << " kg/ha" << endl;
+  }
+
+  vo_DecomposerRespiration = 0.0;
+  vo_NetNMineralisation = 0.0;
+  for (size_t i = 0; i < nools; i++) {
+    auto& layi = soilColumn.at(i);
+    const double h = layi.vs_LayerThickness;
+    const auto& fl = _sammDailyFluxes[i];
+
+    // gross mineralisation to NH4, microbial immobilisation of mineral N from NH4 first, then NO3 [kg N m-3]
+    layi.vs_SoilNH4 += kgHa2kgM3(fl[samm::F_MIN_GROSS], h);
+    double imm = kgHa2kgM3(fl[samm::F_MIN_IMM], h);
+    const double fromNH4 = std::min(imm, std::max(0.0, layi.vs_SoilNH4));
+    layi.vs_SoilNH4 -= fromNH4;
+    imm -= fromNH4;
+    const double fromNO3 = std::min(imm, std::max(0.0, layi.vs_SoilNO3));
+    layi.vs_SoilNO3 -= fromNO3;
+    imm -= fromNO3;
+    if (imm > 1e-12) debug() << "SAMM: immobilisation exceeds mineral N in layer " << i << " by " << imm << endl;
+
+    // [kg C m-3 d-1], used by the denitrification
+    vo_SMB_CO2EvolutionRate[i] = kgHa2kgM3(fl[samm::F_CO2], h);
+    vo_DecomposerRespiration += fl[samm::F_CO2] / 10000.0; // [kg C m-2]
+    // net N mineralisation, positive = release of mineral N [kg N m-2] (DAISY: [kg N m-3] * layer thickness)
+    vo_NetNMineralisationRate[i] = (fl[samm::F_MIN_GROSS] - fl[samm::F_MIN_IMM]) / 10000.0;
+    vo_NetNMineralisation += vo_NetNMineralisationRate[i];
+    vo_CBalance[i] = 0.0;
+  }
+  vo_SumNetNMineralisation += vo_NetNMineralisation;
+  updateLayerSOCFromSAMM();
+}
+
+void SoilOrganic::addOrganicMatterSAMM(const OrganicMatterParameters& params,
+                                       const std::map<size_t, double>& layer2amount,
+                                       double nConcentration, bool isRootInput) {
+  const auto nools = _sammPools.size();
+  if (nools == 0) return;
+  // crop residues have no C:N ratio for AOM fast in their parameters (it is calculated from the N concentration)
+  const bool isCropResidue = int(params.vo_CN_Ratio_AOM_Fast * 10000.0) == 0;
+
+  // chemistry: the parameters' values, else the built-in defaults (values < 0 = not given)
+  const auto& def = isCropResidue ? samm::defaultResidueChemistry() : samm::defaultFertiliserChemistry();
+  double lignin = isRootInput ? params.samm_RootLignin : params.samm_Lignin;
+  double polyphenols = isRootInput ? params.samm_RootPolyphenols : params.samm_Polyphenols;
+  if (lignin < 0) lignin = isRootInput ? def.rootLignin : def.lignin;
+  if (polyphenols < 0) polyphenols = isRootInput ? def.rootPolyphenols : def.polyphenols;
+  const double corgContent = params.vo_CorgContent > 0 ? params.vo_CorgContent : OrganicConstants::po_AOM_to_C;
+  // structural C as share of the added C
+  const double fSTR = std::min(1.0, (samm::C_CONTENT_LIGNIN * lignin + samm::C_CONTENT_POLYPHENOLS * polyphenols)
+                                    / corgContent);
+  const double sLMW = std::clamp(params.samm_ShareToLMW, 0.0, 1.0);
+  const double sMAO = std::clamp(params.samm_ShareToMAO, 0.0, 1.0 - sLMW);
+
+  bool volatilisationPoolCreated = false;
+  for (const auto& [layerIndex, amount] : layer2amount) {
+    if (layerIndex >= soilColumn.size() || amount <= 0) continue;
+    auto& layer = soilColumn.at(layerIndex);
+    const double h = layer.vs_LayerThickness;
+    const double dm = amount * params.vo_AOM_DryMatterContent; // [kg DM ha-1]
+
+    // urea, ammonium and nitrate contents go to the mineral pools as with DAISY [kg N m-3]
+    layer.vs_SoilCarbamid += kgHa2kgM3(dm * params.vo_AOM_CarbamidContent, h);
+    layer.vs_SoilNH4 += kgHa2kgM3(dm * params.vo_AOM_NH4Content, h);
+    layer.vs_SoilNO3 += kgHa2kgM3(dm * params.vo_AOM_NO3Content, h);
+
+    const double C = corgContent * dm; // [kg C ha-1]
+    double N = 0;
+    if (isCropResidue) {
+      N = nConcentration > 0 ? dm * nConcentration
+                             : (params.vo_CN_Ratio_AOM_Slow > 0 ? C / params.vo_CN_Ratio_AOM_Slow : C / 50.0);
+    } else {
+      // organic N as DAISY assigns it to the AOM pools and SOM fast
+      const double fFast = params.vo_PartAOM_to_AOM_Fast, fSlow = params.vo_PartAOM_to_AOM_Slow;
+      const double fRest = std::max(0.0, 1.0 - fFast - fSlow);
+      if (params.vo_CN_Ratio_AOM_Fast > 0) N += C * fFast / params.vo_CN_Ratio_AOM_Fast;
+      if (params.vo_CN_Ratio_AOM_Slow > 0) N += C * fSlow / params.vo_CN_Ratio_AOM_Slow;
+      N += C * fRest / layer.vs_Soil_CN_Ratio();
+    }
+
+    const double cLMW = sLMW * C, cMAO = sMAO * C;
+    const double cLitter = C - cLMW - cMAO;
+    const double cSTR = std::min(fSTR * C, cLitter);
+    const double cLAB = cLitter - cSTR;
+    // N goes with the non-structural C (STR has no N)
+    const double cWithN = cLMW + cMAO + cLAB;
+
+    auto& y = _sammPools[std::min(layerIndex, nools - 1)];
+    y[samm::STR_C] += cSTR;
+    y[samm::LAB_C] += cLAB;
+    y[samm::LMW_C] += cLMW;
+    y[samm::MAO_C] += cMAO;
+    if (cWithN > 0) {
+      y[samm::LAB_N] += N * cLAB / cWithN;
+      y[samm::LMW_N] += N * cLMW / cWithN;
+      y[samm::MAO_N] += N * cMAO / cWithN;
+    } else {
+      y[samm::LAB_N] += N;
+    }
+
+    // organic fertilisers: a DAISY AOM record carries the fertiliser's NH4 content for the NH3 volatilisation
+    // (fo_Volatilisation), it is not decomposed with SAMM
+    if (!isCropResidue && layerIndex < nools && !volatilisationPoolCreated) {
+      AOM_Properties pool;
+      pool.vo_AOM_SlowDecCoeffStandard = params.vo_AOM_SlowDecCoeffStandard;
+      pool.vo_AOM_FastDecCoeffStandard = params.vo_AOM_FastDecCoeffStandard;
+      pool.vo_CN_Ratio_AOM_Slow = params.vo_CN_Ratio_AOM_Slow;
+      pool.vo_CN_Ratio_AOM_Fast = params.vo_CN_Ratio_AOM_Fast;
+      pool.incorporation = this->incorporation;
+      for (size_t i = 0; i < nools; i++) {
+        soilColumn.at(i).vo_AOM_Pool.push_back(pool);
+        if (i == layerIndex) {
+          auto& cpool = soilColumn.at(i).vo_AOM_Pool.back();
+          cpool.vo_DaysAfterApplication = 1;
+          cpool.vo_AOM_DryMatterContent = params.vo_AOM_DryMatterContent;
+          cpool.vo_AOM_NH4Content = params.vo_AOM_NH4Content;
+          cpool.vo_AOM_Slow = params.vo_PartAOM_to_AOM_Slow * kgHa2kgM3(C, h);
+          cpool.vo_AOM_Fast = params.vo_PartAOM_to_AOM_Fast * kgHa2kgM3(C, h);
+        }
+      }
+      volatilisationPoolCreated = true;
+    }
+  }
+  updateLayerSOCFromSAMM();
+  addedOrganicMatter = true;
+}
+
+void SoilOrganic::applyTillage(double depth) {
+  if (!_samm || _sammPools.empty()) return;
+  const size_t n = std::min(soilColumn.getLayerNumberForDepth(depth) + 1, _sammPools.size());
+  const double f = std::clamp(_params.samm.tillageAggregateDestruction, 0.0, 1.0);
+  const std::pair<int, int> aggToFree[] = {{samm::AggSTR_C, samm::STR_C}, {samm::AggLAB_C, samm::LAB_C},
+                                           {samm::AggMAO_C, samm::MAO_C}, {samm::AggLAB_N, samm::LAB_N},
+                                           {samm::AggMAO_N, samm::MAO_N}};
+  for (size_t i = 0; i < n; i++) {
+    for (const auto& [agg, free] : aggToFree) {
+      const double moved = f * _sammPools[i][agg];
+      _sammPools[i][agg] -= moved;
+      _sammPools[i][free] += moved;
+    }
+  }
+  // mix the tilled layers (all organic layers have the same thickness)
+  if (n > 1) {
+    samm::LayerPools mean{};
+    for (size_t i = 0; i < n; i++) for (int k = 0; k < samm::NUM_POOLS; k++) mean[k] += _sammPools[i][k] / double(n);
+    for (size_t i = 0; i < n; i++) _sammPools[i] = mean;
+  }
+  updateLayerSOCFromSAMM();
+}
+
+double SoilOrganic::get_SAMM_Pool(int i, int pool) const {
+  if (!_samm || i < 0 || size_t(i) >= _sammPools.size() || pool < 0 || pool >= samm::NUM_POOLS) return 0.0;
+  return kgHa2kgM3(_sammPools[i][pool], soilColumn.at(i).vs_LayerThickness);
+}
+
+double SoilOrganic::get_SAMM_CO2(int i) const {
+  if (!_samm || i < 0 || size_t(i) >= _sammDailyFluxes.size()) return 0.0;
+  return kgHa2kgM3(_sammDailyFluxes[i][samm::F_CO2], soilColumn.at(i).vs_LayerThickness);
+}
+
+double SoilOrganic::get_SAMM_MinGross(int i) const {
+  if (!_samm || i < 0 || size_t(i) >= _sammDailyFluxes.size()) return 0.0;
+  return kgHa2kgM3(_sammDailyFluxes[i][samm::F_MIN_GROSS], soilColumn.at(i).vs_LayerThickness);
+}
+
+double SoilOrganic::get_SAMM_LeachC() const {
+  return _samm && !_sammDailyFluxes.empty() ? _sammDailyFluxes.back()[samm::F_LEACH_C_OUT] : 0.0;
+}
+
+double SoilOrganic::get_SAMM_LeachN() const {
+  return _samm && !_sammDailyFluxes.empty() ? _sammDailyFluxes.back()[samm::F_LEACH_N_OUT] : 0.0;
 }

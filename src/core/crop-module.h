@@ -62,14 +62,14 @@ public:
              const CropModuleParameters& cropPs,
              const SimulationParameters& simPs,
              std::function<void(std::string)> fireEvent,
-             std::function<void(std::map<size_t, double>, double)> addOrganicMatter,
+             std::function<void(std::map<size_t, double>, double, bool)> addOrganicMatter,
              std::function<std::pair<double, double>(double)> getSnowDepthAndCalcTempUnderSnow,
              Intercropping& ic);
 
   CropModule(SoilColumn& sc,
              const CropModuleParameters& cropPs,
              std::function<void(std::string)> fireEvent,
-             std::function<void(std::map<size_t, double>, double)> addOrganicMatter,
+             std::function<void(std::map<size_t, double>, double, bool)> addOrganicMatter,
              std::function<std::pair<double, double>(double)> getSnowDepthAndCalcTempUnderSnow,
              mas::schema::model::monica::CropModuleState::Reader reader,
              Intercropping& ic);
@@ -732,7 +732,7 @@ private:
   Voc::CPData _cropPhotosynthesisResults;
 
   std::function<void(std::string)> _fireEvent;
-  std::function<void(std::map<size_t, double>, double)> _addOrganicMatter;
+  std::function<void(std::map<size_t, double>, double, bool)> _addOrganicMatter;
   std::function<std::pair<double, double>(double)> _getSnowDepthAndCalcTempUnderSnow;
 
   double vc_O3_shortTermDamage{1.0};

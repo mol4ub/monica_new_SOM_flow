@@ -58,7 +58,7 @@ CropModule::CropModule(
     SoilColumn &sc, const CropParameters &cps, CropResidueParameters rps, bool isWinterCrop,
     const SiteParameters &stps, const CropModuleParameters &cropPs,
     const SimulationParameters &simPs, std::function<void(std::string)> fireEvent,
-    std::function<void(std::map<size_t, double>, double)> addOrganicMatter,
+    std::function<void(std::map<size_t, double>, double, bool)> addOrganicMatter,
     std::function<std::pair<double, double>(double)> getSnowDepthAndCalcTempUnderSnow,
     Intercropping &ic)
     : _intercropping(ic), _frostKillOn(simPs.pc_FrostKillOn), soilColumn(sc), cropPs(cropPs),
@@ -264,7 +264,7 @@ CropModule::CropModule(
 
 CropModule::CropModule(
     SoilColumn &sc, const CropModuleParameters &cropPs, std::function<void(std::string)> fireEvent,
-    std::function<void(std::map<size_t, double>, double)> addOrganicMatter,
+    std::function<void(std::map<size_t, double>, double, bool)> addOrganicMatter,
     std::function<std::pair<double, double>(double)> getSnowDepthAndCalcTempUnderSnow,
     mas::schema::model::monica::CropModuleState::Reader reader, Intercropping &ic)
     : _intercropping(ic), soilColumn(sc), cropPs(cropPs), _fireEvent(kj::mv(fireEvent)),
@@ -1796,7 +1796,7 @@ void CropModule::fc_MoveDeadRootBiomassToSoil(double deadRootBiomass,
   }
 
   if (!layer2deadRootBiomassAtLayer.empty())
-    _addOrganicMatter(layer2deadRootBiomassAtLayer, vc_NConcentrationRoot);
+    _addOrganicMatter(layer2deadRootBiomassAtLayer, vc_NConcentrationRoot, true);
 }
 
 void CropModule::addAndDistributeRootBiomassInSoil(double rootBiomass) {
@@ -4971,7 +4971,7 @@ void CropModule::applyCutting(std::map<int, Cutting::Value> &organs, std::map<in
     debug() << "adding organic matter from cut residues to soilOrganic" << endl;
     debug() << "Residue biomass: " << sumResidueBiomass
             << " Residue N concentration: " << residueNConcentration << endl;
-    _addOrganicMatter({{0, sumResidueBiomass}}, residueNConcentration);
+    _addOrganicMatter({{0, sumResidueBiomass}}, residueNConcentration, false);
   }
 
   // update LAI

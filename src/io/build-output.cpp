@@ -1420,6 +1420,45 @@ BOTRes& monica::buildOutputTable() {
               }, 1);
             });
 
+      // SAMM soil organic matter module (0 when DAISY is used), per organic layer
+      for (int pool = 0; pool < samm::NUM_POOLS; pool++) {
+        const std::string name = samm::poolName(pool);
+        const bool isN = name.size() > 2 && name.substr(name.size() - 2) == "_N";
+        build({id++, "SAMM_" + name, isN ? "kgN m-3" : "kgC m-3", "SAMM pool " + name},
+              [pool](const MonicaModel& monica, OId oid) {
+                auto nools = int(monica.soilColumn().vs_NumberOfOrganicLayers());
+                oid.fromLayer = min(oid.fromLayer, nools - 1);
+                oid.toLayer = min(oid.toLayer, nools - 1);
+                return getComplexValues<double>(oid, [&](int i) {
+                  return monica.soilOrganic().get_SAMM_Pool(i, pool);
+                }, 6);
+              });
+      }
+
+      build({id++, "SAMM_CO2", "kgC m-3 d-1", "SAMM heterotrophic respiration"},
+            [](const MonicaModel& monica, OId oid) {
+              auto nools = int(monica.soilColumn().vs_NumberOfOrganicLayers());
+              oid.fromLayer = min(oid.fromLayer, nools - 1);
+              oid.toLayer = min(oid.toLayer, nools - 1);
+              return getComplexValues<double>(oid, [&](int i) { return monica.soilOrganic().get_SAMM_CO2(i); }, 8);
+            });
+
+      build({id++, "SAMM_MinGross", "kgN m-3 d-1", "SAMM gross N mineralisation (LMW-N to NH4)"},
+            [](const MonicaModel& monica, OId oid) {
+              auto nools = int(monica.soilColumn().vs_NumberOfOrganicLayers());
+              oid.fromLayer = min(oid.fromLayer, nools - 1);
+              oid.toLayer = min(oid.toLayer, nools - 1);
+              return getComplexValues<double>(oid, [&](int i) {
+                return monica.soilOrganic().get_SAMM_MinGross(i);
+              }, 8);
+            });
+
+      build({id++, "SAMM_LeachC", "kgC ha-1 d-1", "SAMM LMW-C moved below the organic layers"},
+            [](const MonicaModel& monica, OId oid) { return round(monica.soilOrganic().get_SAMM_LeachC(), 6); });
+
+      build({id++, "SAMM_LeachN", "kgN ha-1 d-1", "SAMM LMW-N moved below the organic layers"},
+            [](const MonicaModel& monica, OId oid) { return round(monica.soilOrganic().get_SAMM_LeachN(), 6); });
+
       tableBuilt = true;
     }
   }

@@ -30,6 +30,7 @@ Copyright (C) Leibniz Centre for Agricultural Landscape Research (ZALF)
 
 #include "model/monica/monica_state.capnp.h"
 #include "monica-parameters.h"
+#include "samm.h"
 
 namespace monica
 {
@@ -52,9 +53,11 @@ public:
 
   void step(double vw_Precipitation, double vw_MeanAirTemperature, double vw_WindSpeed);
 
+  //! isRootInput: dead roots of the current crop (SAMM uses the root chemistry then)
   void addOrganicMatter(const OrganicMatterParameters& props,
                         const std::map<size_t, double> &layer2amount,
-                        double nConcentration = 0);
+                        double nConcentration = 0,
+                        bool isRootInput = false);
 
   void addOrganicMatter(const OrganicMatterParameters &organicMatterParams,
                         double amount,
@@ -62,6 +65,22 @@ public:
                         size_t intoLayerIndex = 0);
 
   void addIrrigationWater(double amount);
+
+  //! tillage effect on the SAMM pools (aggregate destruction and mixing); no effect with DAISY,
+  //! whose pools are mixed by SoilColumn::applyTillage
+  void applyTillage(double depth);
+
+  //! true if the SAMM soil organic matter module is used instead of DAISY
+  bool usesSAMM() const { return _samm; }
+  //! SAMM pool of a layer [kg C or N m-3] (0 when DAISY is used)
+  double get_SAMM_Pool(int i_Layer, int pool) const;
+  //! SAMM heterotrophic respiration of a layer [kg C m-3 d-1]
+  double get_SAMM_CO2(int i_Layer) const;
+  //! N moved from LMW-N to mineral N (gross mineralisation) in a layer [kg N m-3 d-1]
+  double get_SAMM_MinGross(int i_Layer) const;
+  //! LMW-C and LMW-N moved below the deepest organic layer [kg ha-1 d-1]
+  double get_SAMM_LeachC() const;
+  double get_SAMM_LeachN() const;
 
   /**
    * @brief TRUE, if organic fertilizer is added with a following corporation.
@@ -139,6 +158,14 @@ private:
   NitDenitN2O fo_stics_N2OProduction();
 
   void fo_PoolUpdate();
+
+  // SAMM soil organic matter module
+  void initSAMM();
+  void spinupSAMM(std::vector<samm::LayerPools>& pools, const std::vector<double>& layerSOC);
+  void fo_SAMM();
+  void addOrganicMatterSAMM(const OrganicMatterParameters& params, const std::map<size_t, double>& layer2amount,
+                            double nConcentration, bool isRootInput);
+  void updateLayerSOCFromSAMM();
   double fo_NetEcosystemProduction(double vc_NetPrimaryProduction, double vo_DecomposerRespiration);
   double fo_NetEcosystemExchange(double vc_NetPrimaryProduction, double vo_DecomposerRespiration);
 
@@ -206,6 +233,11 @@ private:
   //! Parameter is automatically set to false, if carbamid amount is falling below 0.001.
   bool incorporation{false};
   CropModule* cropModule{nullptr};
+
+  bool _samm{false};
+  samm::Profile _sammProfile;
+  std::vector<samm::LayerPools> _sammPools; //!< [kg ha-1] per organic layer
+  std::vector<samm::LayerFluxes> _sammDailyFluxes; //!< [kg ha-1 d-1] per organic layer
 };
 
 } // namespace Monica
