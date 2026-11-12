@@ -81,6 +81,8 @@ public:
   //! LMW-C and LMW-N moved below the deepest organic layer [kg ha-1 d-1]
   double get_SAMM_LeachC() const;
   double get_SAMM_LeachN() const;
+  //! number of RK4 steps SAMM used on the last day (adaptive sub-steps)
+  int get_SAMM_Substeps() const { return _sammSubsteps; }
 
   /**
    * @brief TRUE, if organic fertilizer is added with a following corporation.
@@ -238,6 +240,7 @@ private:
   samm::Profile _sammProfile;
   std::vector<samm::LayerPools> _sammPools; //!< [kg ha-1] per organic layer
   std::vector<samm::LayerFluxes> _sammDailyFluxes; //!< [kg ha-1 d-1] per organic layer
+  int _sammSubsteps{0};
 };
 
 } // namespace Monica

@@ -1466,6 +1466,9 @@ BOTRes& monica::buildOutputTable() {
               }, 3);
             });
 
+      build({id++, "SAMM_Substeps", "", "number of RK4 steps SAMM used on the day (adaptive sub-steps)"},
+            [](const MonicaModel& monica, OId oid) { return monica.soilOrganic().get_SAMM_Substeps(); });
+
       tableBuilt = true;
     }
   }

@@ -2229,6 +2229,7 @@ void SoilOrganic::fo_SAMM() {
   const auto nools = _sammPools.size();
   if (nools == 0) return;
   const bool sammModifiers = ss.rateModifiers == "SAMM";
+  const bool kirschbaum = ss.rateModifiers == "Kirschbaum";
 
   samm::Drivers d;
   d.layers.resize(nools);
@@ -2250,7 +2251,8 @@ void SoilOrganic::fo_SAMM() {
                    ? fo_MoistOnDecompostion_kaiteew(layi.get_Vs_SoilMoisture_m3(), layi.vs_Saturation(),
                                                     _params.po_MoistureDecOptimal)
                    : fo_MoistOnDecompostion(layi.vs_SoilMoisture_pF());
-      d.layers[i].corrF = ss.rateScaleMONICA * tod * mod;
+      d.layers[i].corrF = kirschbaum ? ss.rateScaleKirschbaum * samm::rateModTempKirschbaum(temp) * mod
+                                     : ss.rateScaleMONICA * tod * mod;
     }
     d.layers[i].water_kg_ha = layi.get_Vs_SoilMoisture_m3() * h * 10000.0 * 1000.0;
     d.layers[i].minN_kg_ha = kgM32kgHa(std::max(0.0, layi.vs_SoilNH4) + std::max(0.0, layi.vs_SoilNO3), h);
@@ -2271,7 +2273,7 @@ void SoilOrganic::fo_SAMM() {
 
   const auto before = _sammPools;
   _sammDailyFluxes.assign(nools, samm::LayerFluxes{});
-  _sammProfile.stepRK4(_sammPools, d, _sammDailyFluxes);
+  _sammSubsteps = _sammProfile.stepAdaptive(_sammPools, d, _sammDailyFluxes);
   auto residual = samm::Profile::balanceResidual(before, _sammPools, _sammDailyFluxes);
   if (std::abs(residual.first) > 1e-6 || std::abs(residual.second) > 1e-6) {
     debug() << "SAMM: daily balance residual C " << residual.first << " N " << residual.second << " kg/ha" << endl;

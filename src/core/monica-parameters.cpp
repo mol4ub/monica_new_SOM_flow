@@ -2321,6 +2321,7 @@ std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
     {"NonMicAgg", &samm::Params::NonMicAgg}, {"refDepth", &samm::Params::refDepth},
     {"NonMicAggCorrFRef", &samm::Params::NonMicAggCorrFRef},
     {"a_MIC_min", &samm::Params::a_MIC_min}, {"leachCap", &samm::Params::leachCap},
+    {"maxTurnoverPerStep", &samm::Params::maxTurnoverPerStep}, {"maxSubsteps", &samm::Params::maxSubsteps},
     {"f_min", &samm::Params::f_min}, {"f_turn", &samm::Params::f_turn},
     {"min_imm_frac", &samm::Params::min_imm_frac}, {"min_imm_k", &samm::Params::min_imm_k},
     {"k_des", &samm::Params::k_des}
@@ -2329,7 +2330,7 @@ std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
 
 std::vector<std::pair<const char*, double SAMMSettings::*>> sammSettingMembers() {
   return {
-    {"rateScaleMONICA", &SAMMSettings::rateScaleMONICA},
+    {"rateScaleMONICA", &SAMMSettings::rateScaleMONICA}, {"rateScaleKirschbaum", &SAMMSettings::rateScaleKirschbaum},
     {"tillageAggregateDestruction", &SAMMSettings::tillageAggregateDestruction},
     {"init_fLMW", &SAMMSettings::init_fLMW}, {"init_fMIC", &SAMMSettings::init_fMIC},
     {"init_fAggLitter", &SAMMSettings::init_fAggLitter}, {"init_AggLitterSTR", &SAMMSettings::init_AggLitterSTR},
@@ -2372,8 +2373,8 @@ Errors SAMMSettings::merge(json11::Json j) {
   for (const auto& [name, member] : sammParamMembers()) set_double_value(params.*member, pj, name);
   for (const auto& [name, member] : sammSettingMembers()) set_double_value(this->*member, j, name);
   set_string_value(rateModifiers, j, "rateModifiers");
-  if (rateModifiers != "MONICA" && rateModifiers != "SAMM") {
-    res.errors.push_back(std::string("SAMM: unknown rateModifiers '") + rateModifiers + "' (MONICA or SAMM)");
+  if (rateModifiers != "MONICA" && rateModifiers != "SAMM" && rateModifiers != "Kirschbaum") {
+    res.errors.push_back(std::string("SAMM: unknown rateModifiers '") + rateModifiers + "' (MONICA, SAMM or Kirschbaum)");
   }
   set_bool_value(spinup, j, "spinup");
   set_int_value(spinup_MaxYears, j, "spinup_MaxYears");

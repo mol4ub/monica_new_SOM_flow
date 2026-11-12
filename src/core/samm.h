@@ -91,6 +91,11 @@ struct Params {
   double NonMicAggCorrFRef{0.0};
   double a_MIC_min{0.05};
   double leachCap{0.95};       //!< maximum share of a donor pool moved by water per day
+  //! adaptive sub-steps (Profile::stepAdaptive): the day is split into n steps so that no pool loses more than this
+  //! share per step at the start of the day; a step whose RK4 stages would make a pool negative is redone with twice
+  //! as many steps. 0 = always one RK4 step per day (exactly as deSolve::rk4 in the R code)
+  double maxTurnoverPerStep{1.0};
+  double maxSubsteps{64};      //!< upper limit of the number of steps per day
   // mineral N coupling and desorption (scenario D)
   double f_min{0.5};           //!< share of microbial N surplus going to mineral N
   double f_turn{0.10};         //!< share of MIC-N and MAO-N turnover to LMW-N going to mineral N
@@ -152,13 +157,20 @@ public:
   void derivatives(const std::vector<LayerPools>& y, const Drivers& d,
                    std::vector<LayerPools>& dy, std::vector<LayerFluxes>& fluxRates) const;
 
-  //! one classical 4th order Runge-Kutta step of 1 day (as deSolve::rk4 with daily times).
-  //! drivers(tOffset) is called with 0, 0.5, 0.5 and 1. Daily fluxes are added to fluxes.
+  //! one classical 4th order Runge-Kutta step of dt days starting at t0 (days since the start of the day);
+  //! dt = 1 is deSolve::rk4 with daily times. drivers(t) is called with t0, t0 + dt/2 (twice) and t0 + dt.
+  //! The fluxes of the step are added to fluxes. If negativeStage is given, it is set to true when a stage state
+  //! or the result has a negative pool.
   void stepRK4(std::vector<LayerPools>& y, const std::function<const Drivers&(double)>& drivers,
-               std::vector<LayerFluxes>& fluxes) const;
+               std::vector<LayerFluxes>& fluxes, double t0 = 0.0, double dt = 1.0, bool* negativeStage = nullptr) const;
 
   //! same, with drivers constant over the day
   void stepRK4(std::vector<LayerPools>& y, const Drivers& d, std::vector<LayerFluxes>& fluxes) const;
+
+  //! one day in n equal RK4 steps, n chosen as described for Params::maxTurnoverPerStep; returns n
+  int stepAdaptive(std::vector<LayerPools>& y, const std::function<const Drivers&(double)>& drivers,
+                   std::vector<LayerFluxes>& fluxes) const;
+  int stepAdaptive(std::vector<LayerPools>& y, const Drivers& d, std::vector<LayerFluxes>& fluxes) const;
 
   //! carbon and nitrogen balance residual of one step [kg ha-1] (should be ~0)
   static std::pair<double, double> balanceResidual(const std::vector<LayerPools>& before,
@@ -177,5 +189,7 @@ double socC(const LayerPools& y);
 //! rate modifiers of the SAMM paper (reference 20 C)
 double rateModTempSAMM(double temperature);
 double rateModWaterSAMM(double pF);
+//! temperature function of Kirschbaum (1995, Soil Biol. Biochem. 27, 753-760), maximum 1 at 36.9 C
+double rateModTempKirschbaum(double temperature);
 
 } // namespace samm

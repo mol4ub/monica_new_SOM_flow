@@ -64,6 +64,10 @@ double rateModTempSAMM(double temperature) {
   return std::pow(2.0, (temperature - 20.0) / 10.0);
 }
 
+double rateModTempKirschbaum(double temperature) {
+  return std::exp(-3.764 + 0.204 * temperature * (1.0 - 0.5 * temperature / 36.9));
+}
+
 double rateModWaterSAMM(double pF) {
   double corr_M = 1;
   if (pF >= 2.5) corr_M = 1.625 - pF / 4.0;
@@ -77,6 +81,8 @@ namespace {
 
 //! dynamic, C:N dependent carbon use efficiency of LMW (CUE_CN_LMW in the R code)
 double cueCnLmw(double LMW_C, double LMW_N, double CUE_LMW) {
+  // safety net: no growth from an empty (or, in an RK4 stage, negative) LMW pool (the R code has no lower limit)
+  if (LMW_C <= 0 || LMW_N <= 0) return 0.0;
   double cue = 1.0 / ((1e-6 + LMW_C) / (LMW_N + 1e-10)) * 13.4;
   if (std::isnan(cue)) cue = 0;
   if (cue > 1) cue = 1;
@@ -139,9 +145,10 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
     const double LAB_C_to_LMW_C = LAB_Cv * p.k_LAB * a_MIC * (1 - p_LAB) * (p.CUE_LAB) * corr_F;
     const double LMW_C_to_CO2 = p.mu_max * LMW_Cv * a_MIC * (1 - cueLMW) * corr_F;
     const double LMW_C_to_MIC_C = p.mu_max * LMW_Cv * a_MIC * cueLMW * corr_F;
-    const double STR_C_to_AggSTR_C = std::min((LMW_C_to_MIC_C + NonMicAgg) * p.aggfactSTR_C, STR_Cv);
-    const double LAB_C_to_AggLAB_C = std::min(STR_C_to_AggSTR_C * p.pc_STR_LAB, LAB_Cv);
-    const double MAO_C_to_AggMAO_C = std::min((LMW_C_to_MIC_C + NonMicAgg) * p.aggfactMAO_C, MAO_Cv);
+    // safety net: aggregate formation cannot become negative (only possible from negative RK4 stage states)
+    const double STR_C_to_AggSTR_C = std::max(std::min((LMW_C_to_MIC_C + NonMicAgg) * p.aggfactSTR_C, STR_Cv), 0.0);
+    const double LAB_C_to_AggLAB_C = std::max(std::min(STR_C_to_AggSTR_C * p.pc_STR_LAB, LAB_Cv), 0.0);
+    const double MAO_C_to_AggMAO_C = std::max(std::min((LMW_C_to_MIC_C + NonMicAgg) * p.aggfactMAO_C, MAO_Cv), 0.0);
     const double AggSTR_C_to_STR_C = AggSTR_Cv * p.kAgg * corr_F;
     const double AggLAB_C_to_LAB_C = AggLAB_Cv * p.kAgg * corr_F;
     const double AggMAO_C_to_MAO_C = AggMAO_Cv * p.kAgg * corr_F;
@@ -244,32 +251,84 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
 }
 
 void Profile::stepRK4(std::vector<LayerPools>& y, const std::function<const Drivers&(double)>& drivers,
-                      std::vector<LayerFluxes>& fluxes) const {
+                      std::vector<LayerFluxes>& fluxes, double t0, double dt, bool* negativeStage) const {
   const size_t n = y.size();
   std::vector<LayerPools> k1, k2, k3, k4, tmp(n);
   std::vector<LayerFluxes> f1, f2, f3, f4;
+  bool neg = false;
+  auto stage = [&](const std::vector<LayerPools>& k, double w) {
+    for (size_t i = 0; i < n; i++) {
+      for (int j = 0; j < NUM_POOLS; j++) {
+        tmp[i][j] = y[i][j] + w * dt * k[i][j];
+        if (tmp[i][j] < 0 && y[i][j] >= 0) neg = true;
+      }
+    }
+  };
 
-  derivatives(y, drivers(0.0), k1, f1);
-  for (size_t i = 0; i < n; i++) for (int k = 0; k < NUM_POOLS; k++) tmp[i][k] = y[i][k] + 0.5 * k1[i][k];
-  derivatives(tmp, drivers(0.5), k2, f2);
-  for (size_t i = 0; i < n; i++) for (int k = 0; k < NUM_POOLS; k++) tmp[i][k] = y[i][k] + 0.5 * k2[i][k];
-  derivatives(tmp, drivers(0.5), k3, f3);
-  for (size_t i = 0; i < n; i++) for (int k = 0; k < NUM_POOLS; k++) tmp[i][k] = y[i][k] + k3[i][k];
-  derivatives(tmp, drivers(1.0), k4, f4);
+  derivatives(y, drivers(t0), k1, f1);
+  stage(k1, 0.5);
+  derivatives(tmp, drivers(t0 + 0.5 * dt), k2, f2);
+  stage(k2, 0.5);
+  derivatives(tmp, drivers(t0 + 0.5 * dt), k3, f3);
+  stage(k3, 1.0);
+  derivatives(tmp, drivers(t0 + dt), k4, f4);
 
   if (fluxes.size() != n) fluxes.assign(n, LayerFluxes{});
   for (size_t i = 0; i < n; i++) {
     for (int k = 0; k < NUM_POOLS; k++) {
-      y[i][k] = y[i][k] + (k1[i][k] + 2 * k2[i][k] + 2 * k3[i][k] + k4[i][k]) / 6.0;
+      const double before = y[i][k];
+      y[i][k] = y[i][k] + dt * (k1[i][k] + 2 * k2[i][k] + 2 * k3[i][k] + k4[i][k]) / 6.0;
+      if (y[i][k] < 0 && before >= 0) neg = true;
     }
     for (int k = 0; k < NUM_FLUXES; k++) {
-      fluxes[i][k] += (f1[i][k] + 2 * f2[i][k] + 2 * f3[i][k] + f4[i][k]) / 6.0;
+      fluxes[i][k] += dt * (f1[i][k] + 2 * f2[i][k] + 2 * f3[i][k] + f4[i][k]) / 6.0;
     }
   }
+  if (negativeStage) *negativeStage = *negativeStage || neg;
 }
 
 void Profile::stepRK4(std::vector<LayerPools>& y, const Drivers& d, std::vector<LayerFluxes>& fluxes) const {
   stepRK4(y, [&d](double) -> const Drivers& { return d; }, fluxes);
+}
+
+int Profile::stepAdaptive(std::vector<LayerPools>& y, const std::function<const Drivers&(double)>& drivers,
+                          std::vector<LayerFluxes>& fluxes) const {
+  const size_t nl = y.size();
+  if (fluxes.size() != nl) fluxes.assign(nl, LayerFluxes{});
+  const int maxN = std::max(1, int(_p.maxSubsteps));
+  if (_p.maxTurnoverPerStep <= 0) {
+    stepRK4(y, drivers, fluxes);
+    return 1;
+  }
+  // largest relative net loss of a pool per day at the start of the day
+  std::vector<LayerPools> dy;
+  std::vector<LayerFluxes> fr;
+  derivatives(y, drivers(0.0), dy, fr);
+  double turnover = 0;
+  for (size_t i = 0; i < nl; i++) {
+    for (int k = 0; k < NUM_POOLS; k++) {
+      if (y[i][k] > 1e-6 && dy[i][k] < 0) turnover = std::max(turnover, -dy[i][k] / y[i][k]);
+    }
+  }
+  int n = std::min(maxN, std::max(1, int(std::ceil(turnover / _p.maxTurnoverPerStep - 1e-12))));
+  while (true) {
+    auto yt = y;
+    std::vector<LayerFluxes> ft(nl, LayerFluxes{});
+    bool neg = false;
+    const double dt = 1.0 / n;
+    for (int s = 0; s < n; s++) stepRK4(yt, drivers, ft, s * dt, dt, &neg);
+    if (neg && n < maxN) {
+      n = std::min(maxN, 2 * n);
+      continue;
+    }
+    y = yt;
+    for (size_t i = 0; i < nl; i++) for (int k = 0; k < NUM_FLUXES; k++) fluxes[i][k] += ft[i][k];
+    return n;
+  }
+}
+
+int Profile::stepAdaptive(std::vector<LayerPools>& y, const Drivers& d, std::vector<LayerFluxes>& fluxes) const {
+  return stepAdaptive(y, [&d](double) -> const Drivers& { return d; }, fluxes);
 }
 
 std::pair<double, double> Profile::balanceResidual(const std::vector<LayerPools>& before,

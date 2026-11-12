@@ -75,8 +75,11 @@ rate modifier `corr_F` (temperature × moisture, section 4.3).
 
 ### Numerics
 
-One classical 4th-order Runge-Kutta step per day for all organic layers together (layers are coupled by the
-transport of LMW), exactly as `deSolve::rk4` with daily times in the R code. Fluxes (CO2, leaching, gross
+Classical 4th-order Runge-Kutta for all organic layers together (layers are coupled by the transport of LMW).
+Normally one step per day, exactly as `deSolve::rk4` with daily times in the R code. On days with very fast
+turnover (hot and wet, large inputs) one daily step is unstable, so the day is split adaptively into n equal
+steps (section 4.1, `maxTurnoverPerStep`); the day's drivers are kept constant. With the HYDRUS drivers of the
+paper this never happens, so the R results are reproduced exactly. Fluxes (CO2, leaching, gross
 mineralisation) are integrated with the same Runge-Kutta weights, so the daily C and N balances close to
 rounding error (about 1e-12 kg ha⁻¹; checked every day, `debug()` message if a residual exceeds 1e-6).
 
@@ -117,8 +120,19 @@ rounding error (about 1e-12 kg ha⁻¹; checked every day, `debug()` message if 
   LMW-N across each layer's lower boundary (`LayerSoluteTransport` of the R code: donor layer by flux
   direction, at most 95% of the donor pool per day, inflow from below the bottom layer with a concentration of
   0 by default).
-- `Profile::stepRK4()`: one day; drivers are either constant over the day (MONICA) or a function of the
-  stage time (used by the test harness to reproduce deSolve, whose 4th stage reads the next day's drivers).
+- `Profile::stepRK4()`: one RK4 step of `dt` days (default 1); drivers are either constant over the day
+  (MONICA) or a function of the stage time (used by the test harness to reproduce deSolve, whose 4th stage reads
+  the next day's drivers). All flows stay rates per day, including the per-day limits of the R code
+  (formation ≤ source pool, leaching ≤ 95%, immobilisation ≤ half of LMW-N), so smaller steps solve the same
+  equations more accurately; with `dt = 1` the step is bit-identical to before.
+- `Profile::stepAdaptive()` (used by MONICA): n = ⌈largest relative net loss of any pool per day at the start
+  of the day / `maxTurnoverPerStep`⌉ steps of 1/n day (at most `maxSubsteps`); if an RK4 stage or the result
+  would make a pool negative, the day is redone with twice as many steps. `maxTurnoverPerStep = 0` gives one step
+  per day.
+- Safety net in the flows: the carbon use efficiency of LMW is 0 if LMW-C or LMW-N is ≤ 0, and aggregate
+  formation is never negative. Both only act on negative (RK4 stage) states; the R code has no lower limits, and
+  a negative LMW-N in an RK4 stage made the CUE strongly negative there, so that microbes and aggregates were
+  "un-grown" (section 7.3, numerical stability).
 - `balanceResidual()`, `totalC()`, `totalN()`, `socC()`.
 
 ### 4.2 Switching between DAISY and SAMM (`soilorganic.cpp`)
@@ -151,6 +165,11 @@ Drivers per organic layer, taken from MONICA after its soil temperature and mois
   kaiteew functions with the values in `general/soil-organic.json`.
 - `"SAMM"`: the functions of the paper, `2^((T − 20)/10)` and the pF scalar, with MONICA's soil temperature and
   pF (from MONICA's van Genuchten-Vereecken retention curve).
+- `"Kirschbaum"`: the temperature function of Kirschbaum (1995, Soil Biol. Biochem. 27, 753-760),
+  `exp(−3.764 + 0.204·T·(1 − T/73.8))` (maximum 1 at 36.9 °C, flattening above 30 °C), with MONICA's moisture
+  function, multiplied by `rateScaleKirschbaum = 4.90` (mean Kirschbaum × moisture modifier on the same HYDRUS
+  drivers 0.3964; 1.942 / 0.3964). Below 25 °C it is almost the same as MONICA's temperature function, above
+  30 °C much flatter.
 
 After the step:
 
@@ -242,6 +261,7 @@ Appended after the last existing output, so existing output ids do not change:
 | `SAMM_MinGross` | kg N m⁻³ d⁻¹ (per layer) | gross mineralisation LMW-N → NH4 |
 | `SAMM_LeachC`, `SAMM_LeachN` | kg ha⁻¹ d⁻¹ | LMW moved below the deepest organic layer |
 | `pF` | – (per layer) | MONICA's soil water tension |
+| `SAMM_Substeps` | – | number of RK4 steps SAMM used on the day (1 on almost all days) |
 
 Per-layer pools in kg ha⁻¹ = value × layer thickness (m) × 10 000.
 
@@ -272,8 +292,9 @@ Values in a material's JSON file override the table.
 | `NonMicAggCorrFRef` | 0 (off) | experimental: if > 0, `NonMicAgg` is multiplied by `corr_F / NonMicAggCorrFRef` (1.942 = mean corr_F of the Khon Kaen calibration) |
 | `c_SORP` | 0.049 | used only if no site value results from `cSorp`, mineralogy or latitude (it always does) |
 | `refDepth`, `a_MIC_min`, `leachCap` | 0.15, 0.05, 0.95 | |
+| `maxTurnoverPerStep`, `maxSubsteps` | 1.0, 64 | adaptive sub-steps (section 4.1); 0 = one step per day as in the R code |
 | `f_min`, `f_turn`, `min_imm_frac`, `min_imm_k`, `k_des` | 0.5, 0.10, 0, 0, 0.006 | mineral N coupling and desorption (scenario D) |
-| `rateModifiers`, `rateScaleMONICA` | `"MONICA"`, 0.545 | section 4.3 |
+| `rateModifiers`, `rateScaleMONICA`, `rateScaleKirschbaum` | `"MONICA"`, 0.545, 4.90 | section 4.3 (`"MONICA"`, `"SAMM"` or `"Kirschbaum"`) |
 | `tillageAggregateDestruction` | 0.20 | section 4.6 |
 | `init_fLMW`, `init_fMIC`, `init_fAggLitter`, `init_AggLitterSTR`, `init_fMAOfree`, `init_freeLitter`, `init_freeLitterSTR` | 0.005, 0.02, 0.10, 0.10, 0.60, 0.03, 0.16 | section 4.4 |
 | `init_CN_MAO`, `init_CN_MIC`, `init_CN_LMW`, `init_CN_Litter` | 9, 10, 20, 142.9 | |
@@ -316,6 +337,9 @@ own soil temperature, moisture and water fluxes, so its drivers differ from HYDR
 
 ![SOC of the Khon Kaen treatments](images/samm_khonkaen_soc.png)
 
+(Figure and table computed with one RK4 step per day, before the adaptive sub-steps; the effect of the
+sub-steps is shown at the end of this section.)
+
 | | R (HYDRUS drivers) | MONICA, MONICA modifiers (default) | MONICA, SAMM modifiers |
 |---|---|---|---|
 | SOC vs measurements, RMSE / EF (n = 130) | 828 / 0.66 | 1118 / 0.38 | 3734 / −5.9 |
@@ -348,7 +372,7 @@ Rscript plot_comparison.R out soc.png
 #### All measurement types
 
 `AllMeasurements.csv` also has soil N, microbial C and N, aggregate C and free MAOC (aggregates and MAOC only in
-2019). The figure compares them with MONICA (default modifiers, blue) and R (grey). Measurements are matched by
+2019). The figure compares them with MONICA (default modifiers, adaptive sub-steps, blue) and R (grey). Measurements are matched by
 simulation day, as in the calibration of the R code (n differs slightly from the table above, where measurements
 on day 1 were left out). Litterbag C is not shown: the litterbags are a calibration device of the R code that
 MONICA does not simulate.
@@ -360,12 +384,12 @@ AggLAB_N + AggMAO_N; aggregate C = AggSTR + AggLAB + AggMAO; free MAOC = MAO_C.
 
 | all treatments | n | MONICA RMSE / EF / bias | R RMSE / EF / bias |
 |---|---|---|---|
-| SOC (kg C ha⁻¹) | 135 | 1122 / 0.36 / +432 | 847 / 0.63 / −276 |
-| soil N (kg N ha⁻¹) | 120 | 348 / −5.78 / +214 | 200 / −1.24 / +64 |
-| microbial C (kg C ha⁻¹) | 241 | 240 / −5.33 / +147 | 208 / −3.76 / +102 |
-| microbial N (kg N ha⁻¹) | 271 | 28.8 / −0.06 / −3.5 | 29.5 / −0.11 / −10.7 |
-| aggregate C (kg C ha⁻¹) | 30 | 1471 / −8.41 / +993 | 419 / 0.24 / +261 |
-| free MAOC (kg C ha⁻¹) | 30 | 755 / −2.43 / −161 | 212 / 0.73 / +103 |
+| SOC (kg C ha⁻¹) | 135 | 1087 / 0.40 / +557 | 847 / 0.63 / −276 |
+| soil N (kg N ha⁻¹) | 120 | 355 / −6.05 / +219 | 200 / −1.24 / +64 |
+| microbial C (kg C ha⁻¹) | 241 | 262 / −6.53 / +172 | 208 / −3.76 / +102 |
+| microbial N (kg N ha⁻¹) | 271 | 28.5 / −0.04 / −0.3 | 29.5 / −0.11 / −10.7 |
+| aggregate C (kg C ha⁻¹) | 30 | 1452 / −8.16 / +1190 | 419 / 0.24 / +261 |
+| free MAOC (kg C ha⁻¹) | 30 | 714 / −2.07 / −114 | 212 / 0.73 / +103 |
 
 - Soil N: measured soil N stays roughly constant, while both models accumulate N in the treatments with litter,
   most in groundnut and tamarind (low C:N). MONICA accumulates more than R, consistent with its higher SOC.
@@ -385,6 +409,43 @@ Reproduce (with the runs of `sim-<TRT>-MONICA.json` and the R output from above)
 python3 tests/samm/khonkaen_monica/all_measurements.py R_out.csv runs out
 Rscript tests/samm/khonkaen_monica/plot_all_measurements.R out all_measurements.png
 ```
+
+#### Numerical stability: adaptive sub-steps and the Kirschbaum temperature function
+
+With one RK4 step per day, microbial C became negative in the groundnut treatment from 2019-04-22 to 2019-05-14
+(minimum −25 kg C ha⁻¹), and SOC and microbial C showed short dips in other years. The cause was not the litter
+addition but the first heavy rain of the 2019 season (32 mm) on soil at 37.7 °C: MONICA's modifier reached
+corr_F = 7.27 (median 1.05; SAMM's own functions with HYDRUS stay below about 3.5). LMW-N was then turned over
+about 2.5-3 times per day, more than a daily RK4 step can handle (stable up to about 2.8). In the stages LMW-N
+went 36 → 2.9 → 63.5 → −129 kg N ha⁻¹; with the negative LMW-N the CUE of LMW became −53, microbial growth and,
+through it, aggregate formation became strongly negative, and the 4th stage alone gave −2329 kg MIC-C ha⁻¹ d⁻¹.
+SAMM v1.1 in R run with MONICA's drivers stays just stable (its 4th stage uses the next, cooler day), but has the
+same weakness. Splitting that day into 2, 4, 8 or 24 steps gives the same converged result (microbial C 602
+instead of 205 kg C ha⁻¹, CO2 167 instead of 557 kg C ha⁻¹ d⁻¹).
+
+With the adaptive sub-steps (default, `maxTurnoverPerStep = 1`) no pool becomes negative. Sub-steps are needed on
+0-49 of the 9070 days per treatment, never more than 2 steps per day; with the HYDRUS drivers of the paper and in
+all temperate test suites with SAMM switched on, never (results identical to one step per day).
+
+The Kirschbaum temperature function (`"rateModifiers": "Kirschbaum"`) cuts the hot-day peaks of corr_F (maximum
+5.0 instead of 7.8 after scaling to the same mean), but the one-day step already fails at corr_F ≈ 4 on such a
+day, because the moisture function and the per-day N immobilisation limit also drive the turnover. It is
+therefore an alternative calibration choice, not a numerical fix.
+
+![Sub-steps and Kirschbaum at Khon Kaen](images/samm_khonkaen_substeps.png)
+
+| RMSE / EF, all treatments | one step per day | sub-steps (default) | Kirschbaum, sub-steps | R (HYDRUS) |
+|---|---|---|---|---|
+| SOC | 1122 / 0.36 | 1087 / 0.40 | 1067 / 0.42 | 847 / 0.63 |
+| soil N | 348 / −5.78 | 355 / −6.05 | 348 / −5.79 | 200 / −1.24 |
+| microbial C | 240 / −5.33 | 262 / −6.53 | 254 / −6.11 | 208 / −3.76 |
+| microbial N | 29 / −0.06 | 29 / −0.04 | 28 / −0.02 | 29 / −0.11 |
+| aggregate C | 1471 / −8.41 | 1452 / −8.16 | 1749 / −12.30 | 419 / 0.24 |
+| free MAOC | 755 / −2.43 | 714 / −2.07 | 816 / −3.01 | 212 / 0.73 |
+
+The sub-steps change the fit little (microbial C is somewhat higher because the artificial collapses are gone);
+Kirschbaum slightly improves SOC but worsens aggregate C and free MAOC, whose seasonal cycle is driven by the
+moisture function and the aggregate formation (section 8), not by temperature.
 
 ### 7.4 Test suites with SAMM
 

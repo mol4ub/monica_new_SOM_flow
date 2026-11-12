@@ -3,8 +3,9 @@
 // climate_file.csv, litter added as in the R code and integrated with deSolve's classical RK4.
 //
 // build: g++ -O2 -std=c++17 -I src/core tests/samm/khonkaen_forced.cpp src/core/samm.cpp -o khonkaen_forced
-// run:   ./khonkaen_forced tests/samm/data/climate_file.csv out.csv [mineralN]
-//        (mineralN: also switch on the scenario D extensions, f_min/f_turn/k_des, with no mineral N pool)
+// run:   ./khonkaen_forced tests/samm/data/climate_file.csv out.csv [mineralN] [adaptive]
+//        (mineralN: also switch on the scenario D extensions, f_min/f_turn/k_des, with no mineral N pool;
+//         adaptive: adaptive sub-steps as in MONICA, otherwise one RK4 step per day exactly as deSolve::rk4)
 
 #include "samm.h"
 
@@ -42,8 +43,12 @@ static std::vector<Day> readClimate(const std::string& path) {
 struct Treatment { const char* name; double LitterC, LitterN, LitterStructuralPercent; };
 
 int main(int argc, char** argv) {
-  if (argc < 3) { std::cerr << "usage: khonkaen_forced climate_file.csv out.csv [mineralN]\n"; return 1; }
-  const bool mineralN = argc > 3 && std::string(argv[3]) == "mineralN";
+  if (argc < 3) { std::cerr << "usage: khonkaen_forced climate_file.csv out.csv [mineralN] [adaptive]\n"; return 1; }
+  bool mineralN = false, adaptive = false;
+  for (int a = 3; a < argc; a++) {
+    if (std::string(argv[a]) == "mineralN") mineralN = true;
+    if (std::string(argv[a]) == "adaptive") adaptive = true;
+  }
   const auto climate = readClimate(argv[1]);
 
   Params p = Params::samm_v11();
@@ -113,6 +118,7 @@ int main(int argc, char** argv) {
     };
 
     double maxResC = 0, maxResN = 0;
+    int subDays = 0, maxSub = 1;
     auto write = [&](int time) {
       out << time;
       for (int k = 0; k < NUM_POOLS; k++) out << "," << y[0][k];
@@ -123,14 +129,22 @@ int main(int argc, char** argv) {
     for (int time = 1; time < 9070; time++) {
       auto before = y;
       std::vector<LayerFluxes> daily(1, LayerFluxes{});
-      profile.stepRK4(y, [&](double off) -> const Drivers& { return drivers(time + off); }, daily);
+      if (adaptive) {
+        int ns = profile.stepAdaptive(y, [&](double off) -> const Drivers& { return drivers(time + off); }, daily);
+        if (ns > 1) subDays++;
+        maxSub = std::max(maxSub, ns);
+      } else {
+        profile.stepRK4(y, [&](double off) -> const Drivers& { return drivers(time + off); }, daily);
+      }
       auto res = Profile::balanceResidual(before, y, daily);
       maxResC = std::max(maxResC, std::abs(res.first));
       maxResN = std::max(maxResN, std::abs(res.second));
       for (int k = 0; k < NUM_FLUXES; k++) fluxes[0][k] += daily[0][k];
       write(time + 1);
     }
-    std::printf("%s: max daily balance residual C %.2e N %.2e kg/ha\n", t.name, maxResC, maxResN);
+    std::printf("%s: max daily balance residual C %.2e N %.2e kg/ha", t.name, maxResC, maxResN);
+    if (adaptive) std::printf(", days with sub-steps %d, max steps per day %d", subDays, maxSub);
+    std::printf("\n");
   }
   return 0;
 }
