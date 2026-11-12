@@ -1,5 +1,7 @@
 # SAMM in MONICA
 
+Known issues and their status: [samm-issues.md](samm-issues.md).
+
 This document describes how the soil organic matter model **SAMM** (Soil Aggregation through Microbial
 Mediation) was added to MONICA as an alternative to the DAISY-based soil organic matter module, and every
 change this required. Branch: `samm-som-module` (based on release `3.7.4.laub-som-flow`).
