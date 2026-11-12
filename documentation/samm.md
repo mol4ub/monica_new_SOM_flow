@@ -344,6 +344,47 @@ python3 compare_monica_r.py R_out.csv runs out
 Rscript plot_comparison.R out soc.png
 ```
 
+#### All measurement types
+
+`AllMeasurements.csv` also has soil N, microbial C and N, aggregate C and free MAOC (aggregates and MAOC only in
+2019). The figure compares them with MONICA (default modifiers, blue) and R (grey). Measurements are matched by
+simulation day, as in the calibration of the R code (n differs slightly from the table above, where measurements
+on day 1 were left out). Litterbag C is not shown: the litterbags are a calibration device of the R code that
+MONICA does not simulate.
+
+Simulated quantities (0-15 cm): SOC = MIC + MAO + AggSTR + AggLAB + AggMAO; soil N = LMW_N + MIC_N + MAO_N +
+AggLAB_N + AggMAO_N; aggregate C = AggSTR + AggLAB + AggMAO; free MAOC = MAO_C.
+
+![Khon Kaen, all measurement types](images/samm_khonkaen_all_measurements.png)
+
+| all treatments | n | MONICA RMSE / EF / bias | R RMSE / EF / bias |
+|---|---|---|---|
+| SOC (kg C ha⁻¹) | 135 | 1122 / 0.36 / +432 | 847 / 0.63 / −276 |
+| soil N (kg N ha⁻¹) | 120 | 348 / −5.78 / +214 | 200 / −1.24 / +64 |
+| microbial C (kg C ha⁻¹) | 241 | 240 / −5.33 / +147 | 208 / −3.76 / +102 |
+| microbial N (kg N ha⁻¹) | 271 | 28.8 / −0.06 / −3.5 | 29.5 / −0.11 / −10.7 |
+| aggregate C (kg C ha⁻¹) | 30 | 1471 / −8.41 / +993 | 419 / 0.24 / +261 |
+| free MAOC (kg C ha⁻¹) | 30 | 755 / −2.43 / −161 | 212 / 0.73 / +103 |
+
+- Soil N: measured soil N stays roughly constant, while both models accumulate N in the treatments with litter,
+  most in groundnut and tamarind (low C:N). MONICA accumulates more than R, consistent with its higher SOC.
+- Microbial C: both models overestimate the peaks after the litter additions in the dipterocarp, groundnut and
+  tamarind treatments. In the control MONICA keeps a small microbial pool close to the measurements, R lets it
+  decline almost to zero.
+- Microbial N: both models are about as good as the mean of the measurements (EF ≈ 0).
+- Aggregate C and free MAOC (2019): MONICA has a strong seasonal cycle, with aggregates building up in the dry
+  season and breaking down at the start of the rainy season, releasing MAOC; R and the measurements are nearly
+  constant. In the control, almost all MAOC is inside aggregates during the dry season. This is the
+  `NonMicAgg`/`corr_F` asymmetry described above and the main point to address when calibrating SAMM for MONICA's
+  drivers.
+
+Reproduce (with the runs of `sim-<TRT>-MONICA.json` and the R output from above):
+
+```bash
+python3 tests/samm/khonkaen_monica/all_measurements.py R_out.csv runs out
+Rscript tests/samm/khonkaen_monica/plot_all_measurements.R out all_measurements.png
+```
+
 ### 7.4 Test suites with SAMM
 
 All 66 simulations of the test suites run with `"SOM_Model": "SAMM"` (crops, residues, roots, mineral and
