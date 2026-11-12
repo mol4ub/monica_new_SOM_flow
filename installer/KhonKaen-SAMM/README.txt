@@ -28,7 +28,8 @@ documentation/images/samm_khonkaen_all_measurements.png.
 Files
 -----
 sim-<treatment>.json   simulation settings and the list of output columns
-site.json              soil (90% sand, 5% clay, bulk density 1.45), 15 cm layers, SAMM switched on
+site.json              soil (0-15 cm: 82.4% sand, 5% clay, i.e. measured silt + clay 0.176; bulk density 1.45),
+                       15 cm layers, SAMM switched on
                        ("SOM_Model": "SAMM"); the "SAMM" block holds the start state, c_SORP (0.049), the
                        constant daily input of weed roots (2.28 kg C/ha/d, C:N 143) and the parameters
                        (mineral N coupling of scenario D switched off, as in the R code)

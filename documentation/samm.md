@@ -333,9 +333,16 @@ All 66 simulations of `tests/suites.toml`: 67 output files bit-identical to the 
 
 `tests/samm/khonkaen_monica/make_setup.py` builds the experiment in MONICA: daily NASA POWER weather for
 16.33° N, 102.82° E (1995-2019), bare fallow, a 15 cm layer thickness with one organic layer, the soil of the
-paper (90% sand, 5% clay, bulk density 1.45), the R start state, the annual litter additions with the C, N and
+paper (82.4% sand, 5% clay, bulk density 1.45: the measured silt + clay of 0.176 of the R code; the 90% sand given
+in the paper is an older classification), the R start state, the annual litter additions with the C, N and
 structural shares of the R code, the constant daily root input, c_SORP 0.049, scenario D off. MONICA computes its
 own soil temperature, moisture and water fluxes, so its drivers differ from HYDRUS's.
+
+(The figures and tables of this section up to and including the sub-step comparison were computed with 90% sand,
+i.e. silt + clay 0.10. With 82.4% sand MONICA (default modifiers, sub-steps) gives SOC RMSE 951 / EF 0.54 instead of
+1087 / 0.40, aggregate C 1112 / −4.38 instead of 1452 / −8.16, free MAOC 713 / −2.06 (unchanged), microbial N 28 /
+−0.04 (unchanged), microbial C 255 / −6.17, soil N 404 / −8.14 instead of 355 / −6.05. Saturation stays 0.468; the
+median water content of 0-15 cm rises from 0.102 to 0.120, percolation below 15 cm is 782 instead of 794 mm yr⁻¹.)
 
 ![SOC of the Khon Kaen treatments](images/samm_khonkaen_soc.png)
 

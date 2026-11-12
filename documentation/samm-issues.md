@@ -16,7 +16,7 @@ Summary:
 | 8 | Rates scaled to the mean of another rate modifier: effective `mu_max` above 1 d⁻¹ | **in progress** (recalibration with Kirschbaum × MONICA moisture) |
 | 9 | Recalibration: parameters at their bounds, very fast aggregate turnover, microbial C too high | **open** |
 | 10 | SAMM's pF moisture scalar with MONICA's pF of sandy soils | **open** (MONICA's moisture function used instead) |
-| 11 | Silt + clay of the Khon Kaen soil: 0.10 in MONICA, 0.176 in the R code | **open** |
+| 11 | Silt + clay of the Khon Kaen soil: 0.10 in MONICA, 0.176 (measured) in the R code | **fixed** (sand 82.4%) |
 | 12 | Total MAOC lower with MONICA's drivers than with HYDRUS (control) | **open** (cause not confirmed) |
 | 13 | Soil N overestimated in the litter treatments | **open** |
 | 14 | N mineralisation at temperate sites 2.8-3.5 × DAISY | **open** (needs calibration) |
@@ -71,6 +71,15 @@ Summary:
 
 - The date column of `AllMeasurements.csv` is 15 days later than the climate calendar. **Fixed** by matching by
   "Day of simulation", as the R calibration does.
+
+### 11. Silt + clay of the Khon Kaen soil
+
+- MONICA took silt + clay = 1 − sand = 0.10 from the 90% sand of the paper (an older classification); the measured
+  value, used in the R code, is 0.176. `MAO_C_max` was therefore 10.7 instead of 18.8 t C ha⁻¹.
+- **Fixed:** the 0-15 cm layer of the Khon Kaen set-up now has 82.4% sand (5% clay), so MONICA computes 0.176 itself
+  (`make_setup.py`, `installer/KhonKaen-SAMM/site.json`). This also changes MONICA's water retention: saturation stays
+  0.468, the median water content rises from 0.102 to 0.120. Fit of MONICA (default modifiers): SOC EF 0.40 → 0.54,
+  aggregate C RMSE 1452 → 1112, free MAOC and microbial N unchanged, soil N EF −6.05 → −8.14.
 
 ### 6. Smaller fixes during the implementation
 
@@ -141,12 +150,6 @@ Summary:
   the dry season (HYDRUS about 1.9 all year). With SAMM's pF scalar the mean moisture factor is 0.53 instead of
   1.00, and SOC builds up about twice as fast as in R. MONICA's moisture function (relative saturation) is used
   instead (default `"rateModifiers": "MONICA"`, and in the recalibration). MONICA's pF for sandy soils is not fixed.
-
-### 11. Silt + clay of the Khon Kaen soil
-
-- MONICA takes silt + clay = 1 − sand = 0.10 (90% sand, 5% clay); the R code uses 0.176. `MAO_C_max` is therefore
-  10.7 instead of 18.8 t C ha⁻¹. The effect so far is small (R with MONICA's drivers but 0.176 still matches MONICA),
-  but the set-up should be aligned, e.g. with a site value for silt + clay.
 
 ### 12. Total MAOC lower with MONICA's drivers
 

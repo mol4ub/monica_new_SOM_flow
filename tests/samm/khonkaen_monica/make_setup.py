@@ -82,7 +82,8 @@ def write_site(modifiers):
             "Latitude": 16.3333, "Slope": 0, "HeightNN": [175, "m"], "NDeposition": [0, "kg N ha-1 y-1"],
             "SoilProfileParameters": [
                 {"Thickness": [DEPTH, "m"], "SoilOrganicCarbon": [soc_frac * 100, "%"],
-                 "Sand": [0.90, "kg kg-1"], "Clay": [0.05, "kg kg-1"], "pH": 5.5, "CN": 10,
+                 # measured silt + clay 0.176 (as in the SAMM R code); 90% sand of the paper is an older classification
+                 "Sand": [round(1 - SICL, 3), "kg kg-1"], "Clay": [0.05, "kg kg-1"], "pH": 5.5, "CN": 10,
                  "SoilBulkDensity": [BD, "kg m-3"]},
                 {"Thickness": [1.80, "m"], "SoilOrganicCarbon": [0.1, "%"],
                  "Sand": [0.88, "kg kg-1"], "Clay": [0.07, "kg kg-1"], "pH": 5.5, "CN": 10,
