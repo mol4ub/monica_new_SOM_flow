@@ -1,0 +1,26 @@
+{
+  "crops": {},
+  "cropRotation": [
+    {
+      "worksteps": [
+        {
+          "date": "1995-03-01",
+          "type": "OrganicFertilization",
+          "amount": [
+            0.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": [
+            "include-from-file",
+            "organic-fertilisers/CAM.json"
+          ]
+        }
+      ]
+    }
+  ],
+  "CropParameters": [
+    "include-from-file",
+    "general/crop.json"
+  ]
+}

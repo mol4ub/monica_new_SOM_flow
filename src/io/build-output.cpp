@@ -1459,6 +1459,13 @@ BOTRes& monica::buildOutputTable() {
       build({id++, "SAMM_LeachN", "kgN ha-1 d-1", "SAMM LMW-N moved below the organic layers"},
             [](const MonicaModel& monica, OId oid) { return round(monica.soilOrganic().get_SAMM_LeachN(), 6); });
 
+      build({id++, "pF", "", "soil water tension pF (log10 of the matric head in cm)"},
+            [](const MonicaModel& monica, OId oid) {
+              return getComplexValues<double>(oid, [&](int i) {
+                return const_cast<SoilLayer&>(monica.soilColumn().at(i)).vs_SoilMoisture_pF();
+              }, 3);
+            });
+
       tableBuilt = true;
     }
   }

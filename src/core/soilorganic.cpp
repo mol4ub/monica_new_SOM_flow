@@ -2200,7 +2200,7 @@ void SoilOrganic::spinupSAMM(std::vector<samm::LayerPools>& pools, const std::ve
     int year = 0;
     for (; year < ss.spinup_MaxYears; year++) {
       double before = samm::totalC(y[0]);
-      for (int day = 0; day < 365; day++) _sammProfile.stepRK4(y, d, f), f[0].fill(0);
+      for (int day = 0; day < 365; day++) layerProfile.stepRK4(y, d, f), f[0].fill(0);
       if (std::abs(samm::totalC(y[0]) - before) < 1e-5 * std::max(before, 1e-9)) break;
     }
     if (year >= ss.spinup_MaxYears) {
