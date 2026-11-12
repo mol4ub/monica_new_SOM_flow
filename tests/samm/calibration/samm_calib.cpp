@@ -15,6 +15,8 @@
 //           dream <prior.csv> <start.csv> <chains.csv>  DREAM(ZS) MCMC (Vrugt 2016) with --chains chains (default 4)
 //                                          started around <start.csv>; target = prior x likelihood; writes every
 //                                          --thin-th generation of all chains (summary: dream_summary.py)
+//           band <posterior.csv> <out.csv> runs --n parameter sets drawn from a posterior sample file (parameter
+//                                          columns by name) and writes daily 2.5/50/97.5% quantiles per treatment
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1)
@@ -548,6 +550,49 @@ int main(int argc, char** argv) {
                      nc > 3 ? LL[3] : NAN);
         (void)bestLL;
         if (g >= 10000 && rmax < rhatStop) { std::fprintf(stderr, "converged (all R-hat < %.2f)\n", rhatStop); break; }
+      }
+    }
+    return 0;
+  }
+
+  if (mode == "band") {
+    std::ifstream in(pos.at(0)); std::string line; std::getline(in, line);
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    auto hdr = split(line, ','); std::vector<int> col(NP, -1);
+    for (int i = 0; i < NP; i++) for (size_t k = 0; k < hdr.size(); k++) if (hdr[k] == pdefs[i].name) col[i] = int(k);
+    std::vector<std::vector<double>> all;
+    while (std::getline(in, line)) {
+      auto f = split(line, ',');
+      std::vector<double> x(NP);
+      for (int i = 0; i < NP; i++) x[i] = std::stod(f.at(col[i]));
+      all.push_back(x);
+    }
+    std::mt19937_64 rng(seed); std::vector<std::vector<double>> S;
+    const long n = std::min<long>(nSir, long(all.size()));
+    for (long k = 0; k < n; k++) S.push_back(all[size_t(std::uniform_real_distribution<double>(0, 1)(rng) * all.size())]);
+    const char* qn[7] = {"SOC", "Microbial N", "Microbial C", "Aggregate C", "Free MOAC", "Litterbag C", "Soil N"};
+    auto qv = [](const std::array<double, NUM_POOLS + 3>& r, int q) {
+      switch (q) { case 0: return r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 1: return r[MIC_N];
+        case 2: return r[MIC_C]; case 3: return r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 4: return r[MAO_C];
+        case 5: return r[NUM_POOLS] + r[NUM_POOLS + 1];
+        default: return r[LMW_N] + r[MIC_N] + r[MAO_N] + r[AggLAB_N] + r[AggMAO_N]; } };
+    std::ofstream out(pos.at(1)); out.precision(8);
+    out << "TRT,time,quantity,q025,q50,q975\n";
+    for (int ti = 0; ti < 5; ti++) {
+      // vals[q][day][k]
+      std::vector<std::vector<std::vector<float>>> vals(7, std::vector<std::vector<float>>(LAST, std::vector<float>(n)));
+      std::atomic<long> next(0); std::vector<std::thread> th;
+      for (int t = 0; t < threads; t++) th.emplace_back([&]() {
+        for (long k; (k = next++) < n;) {
+          auto r = run(S[k], ti, clim, cfg, true, nullptr, nullptr);
+          for (int day = 0; day < LAST && day < int(r.rows.size()); day++) for (int q = 0; q < 7; q++) vals[q][day][k] = float(qv(r.rows[day], q));
+        }
+      });
+      for (auto& t : th) t.join();
+      for (int day = 0; day < LAST; day++) for (int q = 0; q < 7; q++) {
+        auto v = vals[q][day]; std::sort(v.begin(), v.end());
+        auto Q = [&](double p) { return v[std::min<size_t>(v.size() - 1, size_t(p * v.size()))]; };
+        out << trtNames[ti] << "," << day + 1 << "," << qn[q] << "," << Q(0.025) << "," << Q(0.5) << "," << Q(0.975) << "\n";
       }
     }
     return 0;
