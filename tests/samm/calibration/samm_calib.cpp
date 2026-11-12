@@ -60,14 +60,16 @@ static const std::set<int> addDays = {1, 382, 759, 1125, 1490, 1874, 2231, 2596,
 static const int LAST = 9070;
 static const int LITTERBAG_DAY = 4414;  // litter addition of the litterbag experiment
 
-// calibrated parameters (Table 4 of the paper) and their search bounds
+// calibrated parameters (Table 4 of the paper) and their search bounds; upper bounds of k_MAO (10 x SAMM v1.1),
+// CUE_STR, MicMaxCN and Daily_Litter_C (weed roots) limit the GA to plausible values (without them it ran to
+// k_MAO 0.01, CUE_STR 0.99, MicMaxCN 15 and 8 kg C/ha/d of root input)
 struct PDef { const char* name; double lo, hi; };
 static const std::vector<PDef> pdefs = {
-  {"k_STR", 0.0015, 0.08}, {"k_LAB", 0.02, 0.9}, {"k_MIC", 0.003, 0.2}, {"k_MAO", 0.0002, 0.01},
+  {"k_STR", 0.0015, 0.08}, {"k_LAB", 0.02, 0.9}, {"k_MIC", 0.003, 0.2}, {"k_MAO", 0.0002, 0.0041},
   {"mu_max", 0.05, 0.95}, {"kAgg", 0.015, 0.8}, {"K_M_MIC_C", 5, 400}, {"m_MIC", 0.0, 0.02},
-  {"K_LMW_MAO", 0.005, 0.5}, {"CUE_STR", 0.1, 1.0}, {"CUE_LAB", 0.1, 1.0}, {"MicMinCN", 3.0, 7.5},
-  {"MicMaxCN", 7.5, 15.0}, {"f_MICMAOM", 0.02, 0.8}, {"pc_STR_LAB", 0.5, 8.0}, {"aggfactSTR_C", 0.0, 5.0},
-  {"aggfactMAO_C", 0.0, 8.0}, {"NonMicAgg", 0.0, 150.0}, {"Daily_Litter_C", 0.5, 8.0},
+  {"K_LMW_MAO", 0.005, 0.5}, {"CUE_STR", 0.1, 0.7}, {"CUE_LAB", 0.1, 1.0}, {"MicMinCN", 3.0, 7.5},
+  {"MicMaxCN", 7.5, 12.0}, {"f_MICMAOM", 0.02, 0.8}, {"pc_STR_LAB", 0.5, 8.0}, {"aggfactSTR_C", 0.0, 5.0},
+  {"aggfactMAO_C", 0.0, 8.0}, {"NonMicAgg", 0.0, 150.0}, {"Daily_Litter_C", 0.5, 5.0},
   {"Daily_Litter_CN", 20.0, 300.0}, {"Daily_LitterSTR_C", 0.01, 0.6}};
 static const int NP = int(pdefs.size());
 
@@ -319,7 +321,10 @@ int main(int argc, char** argv) {
     std::uniform_real_distribution<double> U(0, 1);
     std::vector<std::vector<double>> P(pop, std::vector<double>(NP));
     for (auto& ind : P) for (int i = 0; i < NP; i++) ind[i] = pdefs[i].lo + U(rng) * (pdefs[i].hi - pdefs[i].lo);
-    for (size_t s = 0; s + 1 < pos.size() && int(s) < pop; s++) P[s] = readParams(pos[s + 1]);  // seeds
+    for (size_t s = 0; s + 1 < pos.size() && int(s) < pop; s++) {  // starting points, clipped into the bounds
+      P[s] = readParams(pos[s + 1]);
+      for (int i = 0; i < NP; i++) P[s][i] = std::min(pdefs[i].hi, std::max(pdefs[i].lo, P[s][i]));
+    }
     std::vector<double> fit(pop);
     auto evalAll = [&](std::vector<std::vector<double>>& Q, std::vector<double>& F, int from) {
       std::atomic<int> next(from);
