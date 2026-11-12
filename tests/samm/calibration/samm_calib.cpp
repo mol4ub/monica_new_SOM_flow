@@ -12,8 +12,12 @@
 //           sir <prior.csv> <samples.csv>  draws --n parameter sets from the prior (name,mean,sd,lo,hi: normal, truncated
 //                                          to [lo,hi]) and writes each set with its log-likelihood (resampling:
 //                                          sir_resample.py)
+//           dream <prior.csv> <start.csv> <chains.csv>  DREAM(ZS) MCMC (Vrugt 2016) with --chains chains (default 4)
+//                                          started around <start.csv>; target = prior x likelihood; writes every
+//                                          --thin-th generation of all chains (summary: dream_summary.py)
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
-//            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000)
+//            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
+//            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1)
 #include "samm.h"
 
 #include <algorithm>
@@ -278,6 +282,7 @@ int main(int argc, char** argv) {
   Config cfg; int threads = std::max(1u, std::thread::hardware_concurrency()), pop = 100, gens = 300;
   unsigned seed = 1;
   long nSir = 200000;
+  int nChains = 4, thin = 10; long maxGen = 60000; double rhatStop = 1.1;
   std::vector<std::string> pos;
   for (int a = 4; a < argc; a++) {
     std::string s = argv[a];
@@ -289,6 +294,10 @@ int main(int argc, char** argv) {
     else if (s == "--thetaSat") cfg.thetaSat = std::stod(argv[++a]);
     else if (s == "--moistOpt") cfg.moistOpt = std::stod(argv[++a]);
     else if (s == "--n") nSir = std::stol(argv[++a]);
+    else if (s == "--chains") nChains = std::stoi(argv[++a]);
+    else if (s == "--maxGen") maxGen = std::stol(argv[++a]);
+    else if (s == "--thin") thin = std::stoi(argv[++a]);
+    else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
     else pos.push_back(s);
   }
   std::fprintf(stderr, "median variances:");
@@ -420,6 +429,127 @@ int main(int argc, char** argv) {
     for (int i = 0; i < NP; i++) out << pdefs[i].name << ",";
     out << "logLik\n";
     for (long n = 0; n < nSir; n++) { for (int i = 0; i < NP; i++) out << X[n][i] << ","; out << L[n] << "\n"; }
+    return 0;
+  }
+
+  if (mode == "dream") {
+    // ---- prior (normal, truncated to [lo, hi]) ----
+    std::vector<std::array<double, 4>> pr(NP);
+    { std::map<std::string, std::array<double, 4>> m; std::ifstream in(pos.at(0)); std::string line;
+      while (std::getline(in, line)) { auto f = split(line, ','); if (f.size() >= 5 && f[0] != "name")
+        m[f[0]] = {std::stod(f[1]), std::stod(f[2]), std::stod(f[3]), std::stod(f[4])}; }
+      for (int i = 0; i < NP; i++) { if (!m.count(pdefs[i].name)) throw std::runtime_error(std::string("prior missing for ") + pdefs[i].name);
+                                     pr[i] = m[pdefs[i].name]; } }
+    auto inBounds = [&](const std::vector<double>& x) {
+      for (int i = 0; i < NP; i++) if (x[i] < pr[i][2] || x[i] > pr[i][3]) return false;
+      return x[11] < x[12];
+    };
+    auto logPrior = [&](const std::vector<double>& x) -> double {
+      if (!inBounds(x)) return -INFINITY;
+      double lp = 0; for (int i = 0; i < NP; i++) { double z = (x[i] - pr[i][0]) / pr[i][1]; lp += -0.5 * z * z; }
+      return lp;
+    };
+    auto fold = [&](std::vector<double>& x) {  // fold back into [lo, hi] (DREAM boundary handling)
+      for (int i = 0; i < NP; i++) {
+        const double lo = pr[i][2], hi = pr[i][3], w = hi - lo;
+        for (int k = 0; k < 10 && (x[i] < lo || x[i] > hi); k++) {
+          if (x[i] < lo) x[i] = hi - (lo - x[i]); else x[i] = lo + (x[i] - hi);
+        }
+        if (x[i] < lo || x[i] > hi) x[i] = lo + 0.5 * w;
+      }
+    };
+    const auto x0 = readParams(pos.at(1));
+    std::mt19937_64 rng(seed);
+    std::uniform_real_distribution<double> U(0, 1);
+    std::normal_distribution<double> N01(0, 1);
+    const int d = NP, nc = nChains, delta = 1, kArch = 10;
+    // ---- initial archive Z: 10 d points around the start (sd = 0.1 x prior sd), chains start from the first nc ----
+    std::vector<std::vector<double>> Z;
+    while (int(Z.size()) < 10 * d) {
+      std::vector<double> x = x0;
+      if (!Z.empty()) for (int i = 0; i < d; i++) x[i] += 0.1 * pr[i][1] * N01(rng);
+      fold(x); if (inBounds(x)) Z.push_back(x);
+    }
+    std::vector<std::vector<double>> X(Z.begin(), Z.begin() + nc);
+    std::vector<double> LL(nc), LP(nc);
+    auto evalPar = [&](std::vector<std::vector<double>>& xs, std::vector<double>& ll) {
+      std::vector<std::thread> th;
+      for (size_t c = 0; c < xs.size(); c++) th.emplace_back([&, c]() { ll[c] = logLik(xs[c], clim, D, cfg); });
+      for (auto& t : th) t.join();
+    };
+    evalPar(X, LL);
+    for (int c = 0; c < nc; c++) LP[c] = LL[c] + logPrior(X[c]);
+    std::ofstream out(pos.at(2)); out.precision(10);
+    out << "gen,chain"; for (int i = 0; i < NP; i++) out << "," << pdefs[i].name; out << ",logLik,logPost\n";
+    std::vector<std::vector<std::vector<double>>> hist(nc);  // thinned chain states for R-hat
+    const double CRs[3] = {1.0 / 3, 2.0 / 3, 1.0};
+    long accepted = 0, proposed = 0;
+    for (long g = 1; g <= maxGen; g++) {
+      std::vector<std::vector<double>> P(nc); std::vector<double> jac(nc, 0.0);
+      for (int c = 0; c < nc; c++) {
+        std::vector<double> x = X[c], dx(d, 0.0);
+        if (U(rng) < 0.1) {
+          // snooker update
+          const auto& z = Z[size_t(U(rng) * Z.size())];
+          const auto& z1 = Z[size_t(U(rng) * Z.size())]; const auto& z2 = Z[size_t(U(rng) * Z.size())];
+          double nn = 0; std::vector<double> dir(d); for (int i = 0; i < d; i++) { dir[i] = x[i] - z[i]; nn += dir[i] * dir[i]; }
+          if (nn > 0) {
+            double p1 = 0, p2 = 0; for (int i = 0; i < d; i++) { p1 += z1[i] * dir[i]; p2 += z2[i] * dir[i]; }
+            const double gs = 1.2 + U(rng);
+            for (int i = 0; i < d; i++) dx[i] = gs * (p1 - p2) / nn * dir[i];
+            std::vector<double> xn(d); double nn2 = 0;
+            for (int i = 0; i < d; i++) { xn[i] = x[i] + dx[i]; nn2 += (xn[i] - z[i]) * (xn[i] - z[i]); }
+            jac[c] = 0.5 * (d - 1) * (std::log(std::max(nn2, 1e-300)) - std::log(nn));
+          }
+        } else {
+          // parallel direction update with randomised subspace sampling
+          const double CR = CRs[int(U(rng) * 3) % 3];
+          std::vector<int> A; for (int i = 0; i < d; i++) if (U(rng) < CR) A.push_back(i);
+          if (A.empty()) A.push_back(int(U(rng) * d) % d);
+          const double gamma = (U(rng) < 0.2) ? 1.0 : 2.38 / std::sqrt(2.0 * delta * A.size());
+          for (int k = 0; k < delta; k++) {
+            const auto& z1 = Z[size_t(U(rng) * Z.size())]; const auto& z2 = Z[size_t(U(rng) * Z.size())];
+            for (int i : A) dx[i] += gamma * (1 + 0.05 * (2 * U(rng) - 1)) * (z1[i] - z2[i]);
+          }
+          for (int i : A) dx[i] += 1e-6 * std::abs(x[i] + 1e-12) * N01(rng);
+        }
+        for (int i = 0; i < d; i++) x[i] += dx[i];
+        fold(x); P[c] = x;
+      }
+      std::vector<double> PL(nc);
+      evalPar(P, PL);
+      for (int c = 0; c < nc; c++) {
+        const double lp = PL[c] + logPrior(P[c]);
+        proposed++;
+        if (std::isfinite(lp) && std::log(U(rng)) < lp - LP[c] + jac[c]) { X[c] = P[c]; LL[c] = PL[c]; LP[c] = lp; accepted++; }
+      }
+      if (g % kArch == 0) for (int c = 0; c < nc; c++) Z.push_back(X[c]);
+      if (g % thin == 0) for (int c = 0; c < nc; c++) {
+        out << g << "," << c; for (double v : X[c]) out << "," << v; out << "," << LL[c] << "," << LP[c] << "\n";
+        hist[c].push_back(X[c]);
+      }
+      if (g % 1000 == 0) {
+        out.flush();
+        // Gelman-Rubin R-hat on the second half of the thinned chains
+        const size_t n = hist[0].size(), h = n / 2, m = n - h;
+        double rmax = 0; int worst = 0;
+        for (int i = 0; i < d && m > 2; i++) {
+          std::vector<double> mean(nc), var(nc); double gm = 0;
+          for (int c = 0; c < nc; c++) { double s = 0; for (size_t t = h; t < n; t++) s += hist[c][t][i]; mean[c] = s / m; gm += mean[c] / nc;
+                                          double v = 0; for (size_t t = h; t < n; t++) v += (hist[c][t][i] - mean[c]) * (hist[c][t][i] - mean[c]); var[c] = v / (m - 1); }
+          double B = 0, W = 0; for (int c = 0; c < nc; c++) { B += (mean[c] - gm) * (mean[c] - gm); W += var[c]; }
+          B *= double(m) / (nc - 1); W /= nc;
+          const double r = W > 0 ? std::sqrt(((m - 1.0) / m * W + B / m) / W) : 1e9;
+          if (r > rmax) { rmax = r; worst = i; }
+        }
+        const double bestLL = *std::max_element(LL.begin(), LL.end());
+        std::fprintf(stderr, "gen %6ld  acceptance %.3f  max R-hat %.3f (%s)  logLik of chains %.1f %.1f %.1f %.1f\n",
+                     g, double(accepted) / proposed, rmax, pdefs[worst].name, LL[0], nc > 1 ? LL[1] : NAN, nc > 2 ? LL[2] : NAN,
+                     nc > 3 ? LL[3] : NAN);
+        (void)bestLL;
+        if (g >= 10000 && rmax < rhatStop) { std::fprintf(stderr, "converged (all R-hat < %.2f)\n", rhatStop); break; }
+      }
+    }
     return 0;
   }
   std::cerr << "unknown mode " << mode << "\n";
