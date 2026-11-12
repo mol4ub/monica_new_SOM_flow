@@ -1,0 +1,2 @@
+*.bat text eol=crlf
+README.txt text eol=crlf

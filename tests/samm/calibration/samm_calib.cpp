@@ -3,7 +3,7 @@
 // microbial N, SOC, aggregate C and free MAOC, without covariances, with the median measurement variance of each
 // data type. The model is the SAMM C++ core (src/core/samm.cpp) with the set-up of Samm_main.R (one 0-15 cm layer,
 // HYDRUS drivers, litter additions, daily root inputs, litterbag pools), integrated with deSolve's classical RK4.
-// Litterbag: the 2004 bag is followed past the next addition (see bagDeriv), unlike Samm_main.R v1.1.
+// Litterbag: the bag added on day 4414 is followed past the next addition (see bagDeriv), unlike Samm_main.R v1.1.
 //
 // build: g++ -O3 -std=c++17 -pthread -I src/core tests/samm/calibration/samm_calib.cpp src/core/samm.cpp -o samm_calib
 // usage: samm_calib <climate_file.csv> <AllMeasurements.csv> <mode> [options]
@@ -58,7 +58,7 @@ static const Treatment trts[5] = {{0, 0, 0}, {4530, 57, 0.32}, {3880, 228, 0.13}
 static const std::set<int> addDays = {1, 382, 759, 1125, 1490, 1874, 2231, 2596, 2961, 3323, 3688, 4049, 4414,
                                       4779, 5144, 5509, 5874, 6240, 6605, 6970, 7335, 7702, 8068, 8432, 8797, 9162};
 static const int LAST = 9070;
-static const int LITTERBAG_DAY = 4414;  // addition of the 2004 litterbag experiment
+static const int LITTERBAG_DAY = 4414;  // litter addition of the litterbag experiment
 
 // calibrated parameters (Table 4 of the paper) and their search bounds
 struct PDef { const char* name; double lo, hi; };
@@ -134,7 +134,7 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
     double prot = bg.STR * p.pc_STR_LAB / bg.LAB; if (prot > 1) prot = 1;
     Bag db{-bg.STR * p.k_STR * aMIC * cf, -bg.LAB * (1 - prot) * p.k_LAB * aMIC * cf,
            -bg.LABN * (1 - prot) * p.k_LAB * aMIC * cf};
-    // the bag of the 2004 litterbag experiment (added on day LITTERBAG_DAY) is followed until the last measurement
+    // the bag of the litterbag experiment (added on day LITTERBAG_DAY) is followed until the last measurement
     // (day 4799, after the next addition): from then on the bag is neither emptied nor refilled (Samm_main.R v1.1
     // empties and refills every year; the paper version had second-year litterbag pools for this)
     const bool bagFrozen = idx > LITTERBAG_DAY;
