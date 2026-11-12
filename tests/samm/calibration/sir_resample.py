@@ -22,14 +22,18 @@ def main(path, prefix, n_res=200, seed=1):
     print(f"{len(data)} samples, {len(valid)} valid runs; max logLik {m:.2f}; effective sample size {ess:.2f}")
     top = sorted(w.items(), key=lambda kv: -kv[1])[:10]
     print("largest normalised weights:", ", ".join(f"{v / tot:.3g}" for _, v in top))
-    # resampling without replacement, weights as sampling probabilities (sequential draws)
-    pool = dict(w); chosen = []
+    # resampling without replacement, weights as sampling probabilities (sequential draws). The weights are
+    # recomputed in log space relative to the best remaining sample at every draw: with hundreds of data points
+    # most weights underflow to 0 relative to the overall best, and the remaining probabilities would be lost.
+    pool = sorted(valid, key=lambda i: -ll[i]); chosen = []
     for _ in range(min(n_res, len(pool))):
-        s = sum(pool.values()); u = rnd.random() * s; acc = 0.0
-        for i, v in pool.items():
+        mx = ll[pool[0]]
+        ws = [math.exp(ll[i] - mx) for i in pool[:2000]]  # weights beyond the 2000 best are < exp(-745) anyway
+        u = rnd.random() * sum(ws); acc = 0.0
+        for j, v in enumerate(ws):
             acc += v
             if acc >= u: break
-        chosen.append(i); del pool[i]
+        chosen.append(pool.pop(j))
     eff_chosen = sum(1 for i in chosen if w[i] / tot > 1e-6)
     print(f"resampled {len(chosen)} sets; {eff_chosen} of them carry a normalised weight > 1e-6")
     with open(f"{prefix}_posterior.csv", "w", newline="") as f:
