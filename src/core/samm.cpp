@@ -118,7 +118,7 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
     const double corr_F = ld.corrF;
     const double depthScale = env.thickness / p.refDepth;
     const double K_M_MIC_C = p.K_M_MIC_C * depthScale;
-    const double NonMicAgg = p.NonMicAgg * depthScale;
+    const double NonMicAgg = p.NonMicAgg * depthScale * (p.NonMicAggCorrFRef > 0 ? corr_F / p.NonMicAggCorrFRef : 1.0);
     const double MAO_C_max = env.maoCmax(p);
 
     const double STR_Cv = s[STR_C], LAB_Cv = s[LAB_C], LMW_Cv = s[LMW_C], MIC_Cv = s[MIC_C], MAO_Cv = s[MAO_C];

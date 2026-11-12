@@ -85,6 +85,10 @@ struct Params {
   double aggfactMAO_C{1.57};
   double NonMicAgg{32.5};      //!< physicochemical aggregate formation [kg MIC-C eq ha-1 d-1 per refDepth]
   double refDepth{0.15};       //!< depth K_M_MIC_C and NonMicAgg refer to [m]
+  //! if > 0: physicochemical aggregate formation follows the rate modifier, NonMicAgg * corr_F / NonMicAggCorrFRef,
+  //! like aggregate breakdown; the value is the mean corr_F at which NonMicAgg was calibrated (1.942 for Khon Kaen).
+  //! 0 (default) = constant formation as in SAMM v1.1
+  double NonMicAggCorrFRef{0.0};
   double a_MIC_min{0.05};
   double leachCap{0.95};       //!< maximum share of a donor pool moved by water per day
   // mineral N coupling and desorption (scenario D)

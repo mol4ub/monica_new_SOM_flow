@@ -269,6 +269,7 @@ Values in a material's JSON file override the table.
 | `CUE_STR`, `CUE_LAB`, `CUE_LMW` | 0.57, 0.51, 0.6 | carbon use efficiencies |
 | `MicMinCN`, `MicMaxCN`, `f_MICMAOM`, `pc_STR_LAB` | 5.72, 7.77, 0.21, 2.54 | |
 | `aggfactSTR_C`, `aggfactMAO_C`, `NonMicAgg` | 1.16, 1.57, 32.5 | aggregate formation |
+| `NonMicAggCorrFRef` | 0 (off) | experimental: if > 0, `NonMicAgg` is multiplied by `corr_F / NonMicAggCorrFRef` (1.942 = mean corr_F of the Khon Kaen calibration) |
 | `c_SORP` | 0.049 | used only if no site value results from `cSorp`, mineralogy or latitude (it always does) |
 | `refDepth`, `a_MIC_min`, `leachCap` | 0.15, 0.05, 0.95 | |
 | `f_min`, `f_turn`, `min_imm_frac`, `min_imm_k`, `k_des` | 0.5, 0.10, 0, 0, 0.006 | mineral N coupling and desorption (scenario D) |
@@ -414,7 +415,12 @@ calibration for these temperate sites:
 - No surface litter: residues enter the top layer, as with DAISY.
 - Not in `src/landcare-dss`, which has its own copy of the soil organic parameters.
 - `get_NetNMineralisationRate()` is signed with SAMM, absolute with DAISY.
-- Aggregate formation by `NonMicAgg` does not depend on temperature and moisture (as in SAMM v1.1).
+- Aggregate formation by `NonMicAgg` does not depend on temperature and moisture (as in SAMM v1.1). With MONICA's
+  drivers this drains free MAOC into aggregates in the dry season; SAMM v1.1 in R does the same with MONICA's
+  drivers. `NonMicAggCorrFRef` = 1.942 (formation proportional to `corr_F`) removes this at Khon Kaen (MONICA:
+  SOC EF 0.36 → 0.54, aggregate C RMSE 1471 → 891, free MAOC RMSE 755 → 612 kg C ha⁻¹), but also removes the
+  seasonal dip of aggregate C that the 2019 measurements show (R with HYDRUS drivers: aggregate C RMSE
+  419 → 848). Experimental, off by default; a partial coupling calibrated against the aggregate data is open.
 - Known FYM problem of the earlier R work (C build-up under manure): the options `SAMM_ShareToLMW` and
   `SAMM_ShareToMAO` exist to test a different manure split; defaults are 0.
 

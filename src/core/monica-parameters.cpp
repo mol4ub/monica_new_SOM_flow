@@ -2319,6 +2319,7 @@ std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
     {"f_MICMAOM", &samm::Params::f_MICMAOM}, {"pc_STR_LAB", &samm::Params::pc_STR_LAB},
     {"aggfactSTR_C", &samm::Params::aggfactSTR_C}, {"aggfactMAO_C", &samm::Params::aggfactMAO_C},
     {"NonMicAgg", &samm::Params::NonMicAgg}, {"refDepth", &samm::Params::refDepth},
+    {"NonMicAggCorrFRef", &samm::Params::NonMicAggCorrFRef},
     {"a_MIC_min", &samm::Params::a_MIC_min}, {"leachCap", &samm::Params::leachCap},
     {"f_min", &samm::Params::f_min}, {"f_turn", &samm::Params::f_turn},
     {"min_imm_frac", &samm::Params::min_imm_frac}, {"min_imm_k", &samm::Params::min_imm_k},
