@@ -1,0 +1,136 @@
+{
+  "crop.json": "crop-CT.json",
+  "site.json": "site.json",
+  "climate.csv": "climate.csv",
+  "climate.csv-options": {
+    "no-of-climate-file-header-lines": 2,
+    "csv-separator": ",",
+    "start-date": "1995-03-01",
+    "end-date": "2019-12-29"
+  },
+  "debug?": false,
+  "include-file-base-path": "${MONICA_PARAMETERS}/",
+  "NumberOfLayers": 13,
+  "LayerThickness": [
+    0.15,
+    "m"
+  ],
+  "UseSecondaryYields": false,
+  "NitrogenResponseOn": true,
+  "WaterDeficitResponseOn": true,
+  "EmergenceMoistureControlOn": false,
+  "EmergenceFloodingControlOn": false,
+  "UseAutomaticIrrigation": false,
+  "UseNMinMineralFertilisingMethod": false,
+  "output": {
+    "write-file?": true,
+    "path-to-output": "./",
+    "file-name": "out-CT.csv",
+    "csv-options": {
+      "include-header-row": true,
+      "include-units-row": true,
+      "include-aggregation-rows": false,
+      "csv-separator": ","
+    },
+    "events": [
+      "daily",
+      [
+        "Date",
+        [
+          "SAMM_STR_C",
+          1
+        ],
+        [
+          "SAMM_LAB_C",
+          1
+        ],
+        [
+          "SAMM_LMW_C",
+          1
+        ],
+        [
+          "SAMM_MIC_C",
+          1
+        ],
+        [
+          "SAMM_MAO_C",
+          1
+        ],
+        [
+          "SAMM_AggSTR_C",
+          1
+        ],
+        [
+          "SAMM_AggLAB_C",
+          1
+        ],
+        [
+          "SAMM_AggMAO_C",
+          1
+        ],
+        [
+          "SAMM_LAB_N",
+          1
+        ],
+        [
+          "SAMM_LMW_N",
+          1
+        ],
+        [
+          "SAMM_MIC_N",
+          1
+        ],
+        [
+          "SAMM_MAO_N",
+          1
+        ],
+        [
+          "SAMM_AggLAB_N",
+          1
+        ],
+        [
+          "SAMM_AggMAO_N",
+          1
+        ],
+        [
+          "STemp",
+          1
+        ],
+        [
+          "Mois",
+          1
+        ],
+        [
+          "Sat",
+          1
+        ],
+        [
+          "SAMM_CO2",
+          1
+        ],
+        [
+          "pF",
+          1
+        ],
+        "SAMM_LeachC",
+        [
+          "SOC",
+          1
+        ],
+        [
+          "NH4",
+          1
+        ],
+        [
+          "NO3",
+          1
+        ],
+        [
+          "WaterFlux",
+          1
+        ],
+        "Precip"
+      ]
+    ]
+  }
+}

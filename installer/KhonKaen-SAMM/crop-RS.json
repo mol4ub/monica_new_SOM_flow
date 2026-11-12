@@ -1,0 +1,1663 @@
+{
+  "crops": {},
+  "cropRotation": [
+    {
+      "worksteps": [
+        {
+          "date": "1995-03-01",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "1996-03-16",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "1997-03-28",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "1998-03-29",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "1999-03-29",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2000-04-16",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2001-04-08",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2002-04-08",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2003-04-08",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2004-04-04",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2005-04-04",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2006-03-31",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2007-03-31",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2008-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2009-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2010-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2011-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2012-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2013-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2014-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2015-03-30",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2016-03-31",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2017-04-01",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2018-03-31",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        },
+        {
+          "date": "2019-03-31",
+          "type": "OrganicFertilization",
+          "amount": [
+            10000.0,
+            "kg FM ha-1"
+          ],
+          "incorporation": true,
+          "parameters": {
+            "type": "OrganicFertiliserParameters",
+            "id": "KK_RS",
+            "name": "Khon Kaen litter RS",
+            "AOM_DryMatterContent": [
+              1.0,
+              "kg DM kg FM-1"
+            ],
+            "CorgContent": [
+              0.367,
+              "kg C kg DM-1"
+            ],
+            "AOM_NH4Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_NO3Content": [
+              0.0,
+              "kg N kg DM-1"
+            ],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "PartAOM_to_AOM_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "CN_Ratio_AOM_Fast": 78.08510638297872,
+            "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [
+              0.002,
+              "d-1"
+            ],
+            "AOM_SlowDecCoeffStandard": [
+              0.0002,
+              "d-1"
+            ],
+            "PartAOM_Slow_to_SMB_Slow": [
+              0.0,
+              "kg kg-1"
+            ],
+            "PartAOM_Slow_to_SMB_Fast": [
+              1.0,
+              "kg kg-1"
+            ],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [
+              0.03495238095238095,
+              "kg kg DM-1"
+            ],
+            "SAMM_Polyphenols": [
+              0.0,
+              "kg kg DM-1"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "CropParameters": [
+    "include-from-file",
+    "general/crop.json"
+  ]
+}
