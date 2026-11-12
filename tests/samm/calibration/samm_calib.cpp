@@ -19,7 +19,8 @@
 //                                          columns by name) and writes daily 2.5/50/97.5% quantiles per treatment
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
-//            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1)
+//            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
+//            --lik paper|ar1 (default paper; see Config::ar1)
 #include "samm.h"
 
 #include <algorithm>
@@ -41,8 +42,12 @@ using namespace samm;
 
 struct Day { double temp, theta, leach_mm, pF; };
 struct Obs { int trt, day, type; double value; };
-enum ObsType { LITTERBAG, MICN, SOC, AGGC, MAOC, NTYPES };
-static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Aggregate C", "Free MOAC"};
+enum ObsType { LITTERBAG, MICN, SOC, AGGC, MAOC, MICC, SOILN, NTYPES };
+static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Aggregate C", "Free MOAC", "Microbial C",
+                                        "Soil N"};
+// short names for the error-model hyperparameters sigma_<key> and tau_<key> (likelihood "ar1")
+static const char* typeKeys[NTYPES] = {"Litterbag", "MicN", "SOC", "AggC", "MAOC", "MicC", "SoilN"};
+static const int NPM = 21;  // number of model parameters (the hyperparameters follow them)
 
 static std::vector<std::string> split(const std::string& s, char sep) {
   std::vector<std::string> f; std::stringstream ss(s); std::string x;
@@ -73,17 +78,23 @@ static const int LITTERBAG_DAY = 4414;  // litter addition of the litterbag expe
 // CUE_STR, MicMaxCN and Daily_Litter_C (weed roots) limit the GA to plausible values (without them it ran to
 // k_MAO 0.01, CUE_STR 0.99, MicMaxCN 15 and 8 kg C/ha/d of root input)
 struct PDef { const char* name; double lo, hi; };
-static const std::vector<PDef> pdefs = {
+static std::vector<PDef> pdefs = {
   {"k_STR", 0.0015, 0.08}, {"k_LAB", 0.02, 0.9}, {"k_MIC", 0.003, 0.2}, {"k_MAO", 0.0002, 0.0041},
   {"mu_max", 0.05, 0.95}, {"kAgg", 0.015, 0.8}, {"K_M_MIC_C", 5, 400}, {"m_MIC", 0.0, 0.02},
   {"K_LMW_MAO", 0.005, 0.5}, {"CUE_STR", 0.1, 0.7}, {"CUE_LAB", 0.1, 1.0}, {"MicMinCN", 3.0, 7.5},
   {"MicMaxCN", 7.5, 12.0}, {"f_MICMAOM", 0.02, 0.8}, {"pc_STR_LAB", 0.5, 8.0}, {"aggfactSTR_C", 0.0, 5.0},
   {"aggfactMAO_C", 0.0, 8.0}, {"NonMicAgg", 0.0, 150.0}, {"Daily_Litter_C", 0.5, 5.0},
   {"Daily_Litter_CN", 20.0, 300.0}, {"Daily_LitterSTR_C", 0.01, 0.6}};
-static const int NP = int(pdefs.size());
+static int NP = int(pdefs.size());
 
 struct Config {
   bool sammModifiers = false;
+  //! false ("paper"): independent Gaussian errors with the median measurement variance per data type, data types
+  //! litterbag C, microbial N, SOC, aggregate C, free MAOC (Laub et al. 2024).
+  //! true ("ar1"): all seven data types; per treatment and data type, residual = independent measurement error
+  //! (median measurement variance) + model error with standard deviation sigma_<type> and exponential temporal
+  //! correlation exp(-dt / tau_<type>); exact likelihood with a Kalman filter.
+  bool ar1 = false;
   double thetaSat = 0.468, moistOpt = 0.45;
 };
 
@@ -198,9 +209,13 @@ static double simValue(const std::array<double, NUM_POOLS + 3>& r, int type) {
   switch (type) {
     case LITTERBAG: return r[NUM_POOLS] + r[NUM_POOLS + 1];
     case MICN: return r[MIC_N];
-    case SOC: return r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C];
+    // SOC: all pools except the free (non-aggregated) litter pools STR_C and LAB_C (paper, Appendix A2)
+    case SOC: return r[LMW_C] + r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C];
     case AGGC: return r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C];
     case MAOC: return r[MAO_C];
+    case MICC: return r[MIC_C];
+    // soil N: the N of the same pools as SOC (without free LAB_N)
+    case SOILN: return r[LMW_N] + r[MIC_N] + r[MAO_N] + r[AggLAB_N] + r[AggMAO_N];
   }
   return 0;
 }
@@ -209,6 +224,7 @@ struct Data {
   std::vector<Obs> obs;
   double var[NTYPES];
   std::vector<int> days[5];  // observation days per treatment
+  std::vector<std::vector<size_t>> series;  // observation indices per treatment and data type, sorted by day
 };
 
 static Data readData(const std::string& path) {
@@ -233,6 +249,12 @@ static Data readData(const std::string& path) {
     D.var[k] = n % 2 ? v[n / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]);
   }
   for (const auto& o : D.obs) D.days[o.trt].push_back(std::max(o.day, 1));
+  for (int t = 0; t < 5; t++) for (int ty = 0; ty < NTYPES; ty++) {
+    std::vector<size_t> idx;
+    for (size_t i = 0; i < D.obs.size(); i++) if (D.obs[i].trt == t && D.obs[i].type == ty) idx.push_back(i);
+    std::sort(idx.begin(), idx.end(), [&](size_t a, size_t b) { return D.obs[a].day < D.obs[b].day; });
+    if (!idx.empty()) D.series.push_back(idx);
+  }
   return D;
 }
 
@@ -240,18 +262,36 @@ static Data readData(const std::string& path) {
 static double logLik(const std::vector<double>& x, const std::vector<Day>& clim, const Data& D, const Config& cfg,
                      std::vector<double>* sims = nullptr) {
   double ll = 0;
-  if (sims) sims->assign(D.obs.size(), std::numeric_limits<double>::quiet_NaN());
+  std::vector<double> sim(D.obs.size(), std::numeric_limits<double>::quiet_NaN());
   for (int ti = 0; ti < 5; ti++) {
     std::vector<std::array<double, NUM_POOLS + 3>> at(D.days[ti].size());
     auto r = run(x, ti, clim, cfg, false, &D.days[ti], &at);
     if (!r.ok) return -std::numeric_limits<double>::infinity();
     size_t j = 0;
+    for (size_t i = 0; i < D.obs.size(); i++) if (D.obs[i].trt == ti) sim[i] = simValue(at[j++], D.obs[i].type);
+  }
+  if (sims) *sims = sim;
+  if (!cfg.ar1) {
     for (size_t i = 0; i < D.obs.size(); i++) {
       const auto& o = D.obs[i];
-      if (o.trt != ti) continue;
-      const double s = simValue(at[j++], o.type);
-      if (sims) (*sims)[i] = s;
-      ll += -0.5 * std::log(2 * M_PI * D.var[o.type]) - 0.5 * (o.value - s) * (o.value - s) / D.var[o.type];
+      if (o.type == MICC || o.type == SOILN) continue;  // not used in the paper's calibration
+      ll += -0.5 * std::log(2 * M_PI * D.var[o.type]) - 0.5 * (o.value - sim[i]) * (o.value - sim[i]) / D.var[o.type];
+    }
+    return ll;
+  }
+  // Kalman filter per treatment and data type: latent model error m_t (stationary, variance sigma^2, correlation
+  // exp(-dt/tau)) plus independent measurement error with the median measurement variance of the data type
+  for (const auto& series : D.series) {
+    const int ty = D.obs[series[0]].type;
+    const double sig = x[NPM + 2 * ty], tau = x[NPM + 2 * ty + 1], r = D.var[ty], q = sig * sig;
+    double m = 0, P = q; int prevDay = 0;
+    for (size_t k = 0; k < series.size(); k++) {
+      const auto& o = D.obs[series[k]];
+      if (k > 0) { const double phi = std::exp(-(o.day - prevDay) / tau); m *= phi; P = phi * phi * P + q * (1 - phi * phi); }
+      const double e = o.value - sim[series[k]], S = P + r, v = e - m;
+      ll += -0.5 * (std::log(2 * M_PI * S) + v * v / S);
+      const double K = P / S; m += K * v; P *= (1 - K);
+      prevDay = o.day;
     }
   }
   return ll;
@@ -300,11 +340,24 @@ int main(int argc, char** argv) {
     else if (s == "--maxGen") maxGen = std::stol(argv[++a]);
     else if (s == "--thin") thin = std::stoi(argv[++a]);
     else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
+    else if (s == "--lik") cfg.ar1 = std::string(argv[++a]) == "ar1";
     else pos.push_back(s);
   }
   std::fprintf(stderr, "median variances:");
   for (int k = 0; k < NTYPES; k++) std::fprintf(stderr, " %s %.1f", typeNames[k], D.var[k]);
   std::fprintf(stderr, " (%zu observations)\n", D.obs.size());
+  static std::vector<std::string> hyperNames;
+  if (cfg.ar1) {
+    for (int k = 0; k < NTYPES; k++) {
+      hyperNames.push_back(std::string("sigma_") + typeKeys[k]); hyperNames.push_back(std::string("tau_") + typeKeys[k]);
+    }
+    for (int k = 0; k < NTYPES; k++) {
+      pdefs.push_back({hyperNames[2 * k].c_str(), 0.0, 10 * std::sqrt(D.var[k])});
+      pdefs.push_back({hyperNames[2 * k + 1].c_str(), 1.0, 5000.0});
+    }
+    NP = int(pdefs.size());
+    std::fprintf(stderr, "likelihood ar1: %d data series, %d parameters incl. error model\n", int(D.series.size()), NP);
+  }
 
   if (mode == "eval") {
     auto x = readParams(pos.at(0));
@@ -572,7 +625,7 @@ int main(int argc, char** argv) {
     for (long k = 0; k < n; k++) S.push_back(all[size_t(std::uniform_real_distribution<double>(0, 1)(rng) * all.size())]);
     const char* qn[7] = {"SOC", "Microbial N", "Microbial C", "Aggregate C", "Free MOAC", "Litterbag C", "Soil N"};
     auto qv = [](const std::array<double, NUM_POOLS + 3>& r, int q) {
-      switch (q) { case 0: return r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 1: return r[MIC_N];
+      switch (q) { case 0: return r[LMW_C] + r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 1: return r[MIC_N];
         case 2: return r[MIC_C]; case 3: return r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 4: return r[MAO_C];
         case 5: return r[NUM_POOLS] + r[NUM_POOLS + 1];
         default: return r[LMW_N] + r[MIC_N] + r[MAO_N] + r[AggLAB_N] + r[AggMAO_N]; } };
