@@ -20,7 +20,8 @@
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
-//            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable)
+//            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable),
+//            --weeds, --ndep x, --nfix x (N deposition and fixation into mineral N with --weeds, kg N/ha/yr)
 #include "samm.h"
 
 #include <algorithm>
@@ -105,6 +106,9 @@ struct Config {
   bool ar1 = false;
   //! --weeds: spontaneous weed vegetation with weeding instead of the constant daily root input (see run())
   bool weeds = false;
+  //! --ndep, --nfix: atmospheric N deposition and free-living N fixation into the mineral N pool [kg N ha-1 yr-1]
+  //! (with --weeds; estimates for Khon Kaen: deposition about 7, fixation about 2)
+  double nDep = 0, nFix = 0;
   //! data types left out of the likelihood "ar1" (--exclude "<type name>")
   std::set<int> excluded;
   double thetaSat = 0.468, moistOpt = 0.45;
@@ -257,7 +261,7 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
       const double nPerDM = (1 - wRoot) * N_SHOOT + wRoot * C_ROOT / DLCN;
       if (dW * nPerDM > 0.9 * minN) dW = 0.9 * minN / nPerDM;
       const double water = c.theta * 0.15 * 1e7, leachN = minN * std::min(c.leach_mm * 1e4 / water, 0.95);
-      minN = std::max(0.0, minN + gross - imm - dW * nPerDM - leachN);
+      minN = std::max(0.0, minN + gross - imm - dW * nPerDM - leachN + (cfg.nDep + cfg.nFix) / 365.0);
       wA += dW * (1 - wRoot); wR += dW * wRoot;
       if (weedingDay(time)) {
         if (weedRainy[time]) { res.weedRainySum += wA; res.weedRainyN++; }
@@ -425,6 +429,8 @@ int main(int argc, char** argv) {
     else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
     else if (s == "--lik") cfg.ar1 = std::string(argv[++a]) == "ar1";
     else if (s == "--weeds") cfg.weeds = true;
+    else if (s == "--ndep") cfg.nDep = std::stod(argv[++a]);
+    else if (s == "--nfix") cfg.nFix = std::stod(argv[++a]);
     else if (s == "--exclude") { std::string t = argv[++a]; bool found = false;
       for (int k = 0; k < NTYPES; k++) if (t == typeNames[k]) { cfg.excluded.insert(k); found = true; }
       if (!found) throw std::runtime_error("unknown data type for --exclude: " + t); }
