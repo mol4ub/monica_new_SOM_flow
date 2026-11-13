@@ -47,7 +47,8 @@ static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Ag
                                         "Soil N"};
 // short names for the error-model hyperparameters sigma_<key> and tau_<key> (likelihood "ar1")
 static const char* typeKeys[NTYPES] = {"Litterbag", "MicN", "SOC", "AggC", "MAOC", "MicC", "SoilN"};
-static const int NPM = 22;  // number of model parameters (the hyperparameters follow them)
+static const int NPM = 23;  // number of model parameters incl. observation model (the hyperparameters follow them)
+static const double FN_USED = 3.1;  // factor used to convert ninhydrin-reactive N to microbial N in the data
 static int hyperIndex[NTYPES] = {-1, -1, -1, -1, -1, -1, -1};  // position of sigmaRatio_<type> in the parameters
 
 static std::vector<std::string> split(const std::string& s, char sep) {
@@ -85,7 +86,10 @@ static std::vector<PDef> pdefs = {
   {"K_LMW_MAO", 0.005, 0.5}, {"CUE_STR", 0.1, 0.7}, {"CUE_LAB", 0.1, 1.0}, {"MicMinCN", 3.0, 7.5},
   {"MicMaxCN", 7.5, 12.0}, {"f_MICMAOM", 0.02, 0.8}, {"pc_STR_LAB", 0.5, 8.0}, {"aggfactSTR_C", 0.0, 5.0},
   {"aggfactMAO_C", 0.0, 8.0}, {"NonMicAgg", 0.0, 150.0}, {"Daily_Litter_C", 0.5, 5.0},
-  {"Daily_Litter_CN", 20.0, 300.0}, {"Daily_LitterSTR_C", 0.01, 0.6}, {"betaMIC", 1.0, 2.0}};
+  {"Daily_Litter_CN", 20.0, 300.0}, {"Daily_LitterSTR_C", 0.01, 0.6}, {"betaMIC", 1.0, 2.0},
+  // observation model: true factor microbial N / ninhydrin-reactive N; the data were converted with 3.1
+  // (Amato & Ladd 1988; Laub et al. 2022), so reported microbial N = model MIC_N * 3.1 / fN_ninhydrin
+  {"fN_ninhydrin", 2.0, 5.0}};
 static int NP = int(pdefs.size());
 
 struct Config {
@@ -273,7 +277,10 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
     auto r = run(x, ti, clim, cfg, false, &D.days[ti], &at);
     if (!r.ok) return -std::numeric_limits<double>::infinity();
     size_t j = 0;
-    for (size_t i = 0; i < D.obs.size(); i++) if (D.obs[i].trt == ti) sim[i] = simValue(at[j++], D.obs[i].type);
+    for (size_t i = 0; i < D.obs.size(); i++) if (D.obs[i].trt == ti) {
+      sim[i] = simValue(at[j++], D.obs[i].type);
+      if (D.obs[i].type == MICN) sim[i] *= FN_USED / x[22];  // microbial N as reported with the factor 3.1
+    }
   }
   if (sims) *sims = sim;
   if (!cfg.ar1) {
@@ -310,6 +317,7 @@ static std::vector<double> readParams(const std::string& path) {
   std::vector<double> x(NP);
   for (int i = 0; i < NP; i++) {
     if (!m.count(pdefs[i].name) && std::string(pdefs[i].name) == "betaMIC") m["betaMIC"] = 1.0;  // older files: linear death
+    if (!m.count(pdefs[i].name) && std::string(pdefs[i].name) == "fN_ninhydrin") m["fN_ninhydrin"] = FN_USED;  // no correction
     if (!m.count(pdefs[i].name)) throw std::runtime_error(std::string("missing parameter ") + pdefs[i].name);
     x[i] = m[pdefs[i].name];
   }
