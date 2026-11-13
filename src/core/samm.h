@@ -89,6 +89,10 @@ struct Params {
   //! like aggregate breakdown; the value is the mean corr_F at which NonMicAgg was calibrated (1.942 for Khon Kaen).
   //! 0 (default) = constant formation as in SAMM v1.1
   double NonMicAggCorrFRef{0.0};
+  //! density-dependent microbial death: death rate k_MIC * (MIC_C / MIC_ref)^(betaMIC - 1) (Georgiou et al. 2017);
+  //! 1 (default) = linear death as in SAMM v1.1, 2 = quadratic
+  double betaMIC{1.0};
+  double MIC_ref{100.0};       //!< reference microbial C for density-dependent death [kg C ha-1 per refDepth]
   double a_MIC_min{0.05};
   double leachCap{0.95};       //!< maximum share of a donor pool moved by water per day
   //! adaptive sub-steps (Profile::stepAdaptive): the day is split into n steps so that no pool loses more than this

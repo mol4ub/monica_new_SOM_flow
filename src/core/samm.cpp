@@ -153,8 +153,11 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
     const double AggLAB_C_to_LAB_C = AggLAB_Cv * p.kAgg * corr_F;
     const double AggMAO_C_to_MAO_C = AggMAO_Cv * p.kAgg * corr_F;
     const double MIC_C_to_CO2 = MIC_Cv * p.m_MIC * corr_F;
-    const double MIC_C_to_MAO_C = p.f_MICMAOM * MIC_Cv * p.k_MIC * corr_F;
-    const double MIC_C_to_LMW_C = (1 - p.f_MICMAOM) * MIC_Cv * p.k_MIC * corr_F;
+    // microbial death, density dependent if betaMIC != 1 (rate k_MIC at MIC_C = MIC_ref)
+    const double kDeath = p.betaMIC == 1.0 ? p.k_MIC
+                          : p.k_MIC * std::pow(std::max(MIC_Cv, 0.0) / (p.MIC_ref * depthScale), p.betaMIC - 1.0);
+    const double MIC_C_to_MAO_C = p.f_MICMAOM * MIC_Cv * kDeath * corr_F;
+    const double MIC_C_to_LMW_C = (1 - p.f_MICMAOM) * MIC_Cv * kDeath * corr_F;
     const double MAO_C_to_LMW_C = MAO_Cv * p.k_MAO * a_MIC * corr_F;
     const double LMW_C_to_MAO_C = LMW_Cv * p.K_LMW_MAO * (MAO_C_max - MAO_Cv) / MAO_C_max * corr_F;
     // desorption as in COMISSION (Ahrens et al. 2015), scenario D
@@ -177,8 +180,8 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
     double LAB_N_to_LMW_N = LAB_Nv * p.k_LAB * a_MIC * (1 - p_LAB) * corr_F;
     if (LAB_N_to_LMW_N < 0) LAB_N_to_LMW_N = 0;
     const double LMW_N_to_Mic_N = p.mu_max * LMW_Nv * a_MIC * corr_F;
-    const double MIC_N_to_MAO_N = p.f_MICMAOM * MIC_Nv * p.k_MIC * corr_F;
-    const double MIC_N_to_LMW_N = (1 - p.f_MICMAOM) * MIC_Nv * p.k_MIC * corr_F;
+    const double MIC_N_to_MAO_N = p.f_MICMAOM * MIC_Nv * kDeath * corr_F;
+    const double MIC_N_to_LMW_N = (1 - p.f_MICMAOM) * MIC_Nv * kDeath * corr_F;
     const double MAO_N_to_LMW_N = MAO_Nv * p.k_MAO * a_MIC * corr_F;
     const double LMW_N_to_MAO_N = LMW_C_to_MAO_C * ratio(LMW_Nv, LMW_Cv);
     const double MAO_to_LMW_NDesorption = MAO_C_to_LMW_CDesorption * ratio(MAO_Nv, MAO_Cv);
