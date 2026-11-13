@@ -2,7 +2,7 @@
 # Horizontal bars: measured +/- 1.96 SD; vertical bars: 95% posterior interval of the simulation (band file).
 # Statistics after Loague & Green (1991) and Gauch et al. (2003): MSE = SB + NU + LC.
 args <- commandArgs(TRUE); C <- args[1]; DATA <- args[2]; run <- args[3]; out <- args[4]
-caption <- if (length(args) > 4) args[5] else paste0("SAMM ", run, ", best parameter set")
+caption <- if (length(args) > 4) gsub("\\\\n", "\n", args[5]) else paste0("SAMM ", run, ", best parameter set")
 o <- read.csv(file.path(C, paste0(run, "_obs.csv")))
 band <- read.csv(file.path(C, paste0(run, "_band.csv")))
 m <- read.csv(file.path(DATA, "AllMeasurements.csv"), sep = ";", check.names = FALSE, fileEncoding = "UTF-8-BOM")
