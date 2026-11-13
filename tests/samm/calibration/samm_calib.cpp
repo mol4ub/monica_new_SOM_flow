@@ -21,6 +21,7 @@
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
 //            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable),
+//            --resume (dream: continue the run in the chain file, appending to it; same prior, options, --thin 10),
 //            --holdout <treatment> (repeatable; leaves the treatment out of the likelihood, for cross-validation),
 //            --weeds, --ndep x, --nfix x (N deposition and fixation into mineral N with --weeds, kg N/ha/yr),
 //            --tillage (aggregate destruction at litter incorporation), --flexN, --leachN (see Config)
@@ -438,7 +439,7 @@ int main(int argc, char** argv) {
   Config cfg; int threads = std::max(1u, std::thread::hardware_concurrency()), pop = 100, gens = 300;
   unsigned seed = 1;
   long nSir = 200000;
-  int nChains = 4, thin = 10; long maxGen = 60000; double rhatStop = 1.1;
+  int nChains = 4, thin = 10; long maxGen = 60000; double rhatStop = 1.1; bool resume = false;
   std::vector<std::string> pos;
   for (int a = 4; a < argc; a++) {
     std::string s = argv[a];
@@ -454,6 +455,7 @@ int main(int argc, char** argv) {
     else if (s == "--maxGen") maxGen = std::stol(argv[++a]);
     else if (s == "--thin") thin = std::stoi(argv[++a]);
     else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
+    else if (s == "--resume") resume = true;
     else if (s == "--lik") cfg.ar1 = std::string(argv[++a]) == "ar1";
     else if (s == "--weeds") cfg.weeds = true;
     else if (s == "--ndep") cfg.nDep = std::stod(argv[++a]);
@@ -665,6 +667,33 @@ int main(int argc, char** argv) {
       fold(x); if (inBounds(x)) Z.push_back(x);
     }
     std::vector<std::vector<double>> X(Z.begin(), Z.begin() + nc);
+    std::vector<std::vector<std::vector<double>>> hist(nc);  // thinned chain states for R-hat
+    long g0 = 0;
+    if (resume) {
+      // continue a run: chain states from the existing chain file (written every `thin` generations; with
+      // thin == 10 these are exactly the archive additions), last state of each chain as the current state
+      if (thin != kArch) throw std::runtime_error("--resume needs --thin 10");
+      std::ifstream in(pos.at(2)); std::string line; std::getline(in, line);
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      const auto hdr = split(line, ',');
+      if (int(hdr.size()) != NP + 4) throw std::runtime_error("--resume: chain file does not match the parameter set");
+      std::vector<std::vector<std::pair<long, std::vector<double>>>> rows(nc);
+      while (std::getline(in, line)) {
+        auto f = split(line, ',');
+        if (int(f.size()) != NP + 4 || f.back().empty()) continue;  // incomplete last line
+        const int c = std::stoi(f[1]); if (c < 0 || c >= nc) continue;
+        std::vector<double> x(NP); for (int i = 0; i < NP; i++) x[i] = std::stod(f[2 + i]);
+        rows[c].push_back({std::stol(f[0]), x});
+      }
+      g0 = rows[0].empty() ? 0 : rows[0].back().first;
+      for (int c = 0; c < nc; c++) g0 = std::min(g0, rows[c].empty() ? 0L : rows[c].back().first);
+      if (g0 == 0) throw std::runtime_error("--resume: no complete generation in the chain file");
+      for (long gg = thin; gg <= g0; gg += thin)
+        for (int c = 0; c < nc; c++)
+          for (const auto& r : rows[c]) if (r.first == gg) { hist[c].push_back(r.second); Z.push_back(r.second); X[c] = r.second; break; }
+      rng.seed(seed + 7919 * g0);  // new random stream for the continuation
+      std::fprintf(stderr, "resuming at generation %ld, archive %zu points\n", g0, Z.size());
+    }
     std::vector<double> LL(nc), LP(nc);
     auto evalPar = [&](std::vector<std::vector<double>>& xs, std::vector<double>& ll) {
       std::vector<std::thread> th;
@@ -673,12 +702,21 @@ int main(int argc, char** argv) {
     };
     evalPar(X, LL);
     for (int c = 0; c < nc; c++) LP[c] = LL[c] + logPrior(X[c]);
-    std::ofstream out(pos.at(2)); out.precision(10);
-    out << "gen,chain"; for (int i = 0; i < NP; i++) out << "," << pdefs[i].name; out << ",logLik,logPost\n";
-    std::vector<std::vector<std::vector<double>>> hist(nc);  // thinned chain states for R-hat
+    std::ofstream out;
+    if (resume) {
+      // rewrite the file up to generation g0 (drops an incomplete last line), then append
+      std::vector<std::string> keep; { std::ifstream in(pos.at(2)); std::string line;
+        while (std::getline(in, line)) { auto f = split(line, ',');
+          if (keep.empty() || (int(f.size()) == NP + 4 && !f.back().empty() && std::stol(f[0]) <= g0)) keep.push_back(line); } }
+      out.open(pos.at(2)); for (auto& l : keep) out << l << "\n";
+    } else {
+      out.open(pos.at(2));
+      out << "gen,chain"; for (int i = 0; i < NP; i++) out << "," << pdefs[i].name; out << ",logLik,logPost\n";
+    }
+    out.precision(10);
     const double CRs[3] = {1.0 / 3, 2.0 / 3, 1.0};
     long accepted = 0, proposed = 0;
-    for (long g = 1; g <= maxGen; g++) {
+    for (long g = g0 + 1; g <= maxGen; g++) {
       std::vector<std::vector<double>> P(nc); std::vector<double> jac(nc, 0.0);
       for (int c = 0; c < nc; c++) {
         std::vector<double> x = X[c], dx(d, 0.0);

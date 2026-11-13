@@ -1,8 +1,9 @@
 """Merge the leave-one-residue-out folds: held-out predictions of each fold (cv_obs.csv, cv_band.csv) and the
 run 7 in-sample values for the same treatments (ins_obs.csv, ins_band.csv); print RMSE / EF per type and treatment.
-usage: python3 cv_merge.py calib_dir"""
+usage: python3 cv_merge.py calib_dir [fold_dir (default calib_dir/cv)]
+  calib_dir holds dream7_obs.csv and dream7_band.csv of run 7; fold_dir the lo_<TRT>_* files of the folds"""
 import csv, math, os, sys
-C = sys.argv[1]; CV = os.path.join(C, "cv"); TRTS = ["DP", "GN", "RS", "TM"]
+C = sys.argv[1]; CV = sys.argv[2] if len(sys.argv) > 2 else os.path.join(C, "cv"); TRTS = ["DP", "GN", "RS", "TM"]
 
 def rows(path): return list(csv.DictReader(open(path)))
 def write(path, rs):
