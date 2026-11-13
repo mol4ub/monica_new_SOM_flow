@@ -2242,6 +2242,11 @@ void SoilOrganic::fo_SAMM() {
     const double temp = layi.get_Vs_SoilTemperature();
     if (sammModifiers) {
       d.layers[i].corrF = samm::rateModWaterSAMM(layi.vs_SoilMoisture_pF()) * samm::rateModTempSAMM(temp);
+    } else if (kirschbaum) {
+      // as in the calibration of variant SAMMKirschbaum: MONICA's (kaiteew) moisture function, no scaling
+      d.layers[i].corrF = samm::rateModTempKirschbaum(temp)
+                          * fo_MoistOnDecompostion_kaiteew(layi.get_Vs_SoilMoisture_m3(), layi.vs_Saturation(),
+                                                           _params.po_MoistureDecOptimal);
     } else {
       // the same temperature and moisture functions as DAISY, see fo_MIT()
       double tod = _params.__enable_kaiteew_TempOnDecompostion__
@@ -2251,8 +2256,7 @@ void SoilOrganic::fo_SAMM() {
                    ? fo_MoistOnDecompostion_kaiteew(layi.get_Vs_SoilMoisture_m3(), layi.vs_Saturation(),
                                                     _params.po_MoistureDecOptimal)
                    : fo_MoistOnDecompostion(layi.vs_SoilMoisture_pF());
-      d.layers[i].corrF = kirschbaum ? ss.rateScaleKirschbaum * samm::rateModTempKirschbaum(temp) * mod
-                                     : ss.rateScaleMONICA * tod * mod;
+      d.layers[i].corrF = ss.rateScaleMONICA * tod * mod;
     }
     d.layers[i].water_kg_ha = layi.get_Vs_SoilMoisture_m3() * h * 10000.0 * 1000.0;
     d.layers[i].minN_kg_ha = kgM32kgHa(std::max(0.0, layi.vs_SoilNH4) + std::max(0.0, layi.vs_SoilNO3), h);

@@ -113,7 +113,10 @@ rounding error (about 1e-12 kg ha⁻¹; checked every day, `debug()` message if 
   Table 4, column SAMM (default); `Params::sammNoAgg_v11()` column SAMMnoAgg (`kAgg = 1`, aggregate formation
   0). Scenario D additions: `f_min = 0.5`, `f_turn = 0.10`, `min_imm_frac = 0`, `min_imm_k = 0`,
   `k_des = 0.006` kg C t⁻¹ soil d⁻¹ (the values of `run_scenarioD.R`). `withoutMineralN()` switches them off
-  (pure SAMM v1.1).
+  (pure SAMM v1.1). `Params::samm_kirschbaum()`: the recalibration for the Kirschbaum temperature function ×
+  MONICA's moisture function without scaling (highest-likelihood set of DREAM run 7 against all Khon Kaen data,
+  `tests/samm/calibration/results/dream7`): density-dependent microbial death (`betaMIC` 1.967), mineral N
+  release `f_min` 0.66 and `f_turn` 0.86, no immobilisation of mineral N and no desorption (section 7.5).
 - `samm::LayerEnv`: thickness, bulk density, silt + clay and a layer-specific `c_SORP`; `maoCmax()`.
 - **Layer thickness**: SAMM was calibrated for one 0-15 cm layer. `K_M_MIC_C` (kg C ha⁻¹) and `NonMicAgg`
   (kg C ha⁻¹ d⁻¹) are amounts per layer, so they are scaled by `thickness / refDepth` (`refDepth = 0.15` m);
@@ -169,9 +172,11 @@ Drivers per organic layer, taken from MONICA after its soil temperature and mois
   pF (from MONICA's van Genuchten-Vereecken retention curve).
 - `"Kirschbaum"`: the temperature function of Kirschbaum (1995, Soil Biol. Biochem. 27, 753-760),
   `exp(−3.764 + 0.204·T·(1 − T/73.8))` (maximum 1 at 36.9 °C, flattening above 30 °C), with MONICA's moisture
-  function, multiplied by `rateScaleKirschbaum = 4.90` (mean Kirschbaum × moisture modifier on the same HYDRUS
-  drivers 0.3964; 1.942 / 0.3964). Below 25 °C it is almost the same as MONICA's temperature function, above
-  30 °C much flatter.
+  function `exp(−18 (θ/θ_sat − MoistureDecOptimal)²)` (always the kaiteew function), without scaling, so that
+  `mu_max` and the other rates are the true maxima. Below 25 °C it is almost the same as MONICA's temperature
+  function, above 30 °C much flatter. Only meaningful with the parameter set calibrated for it,
+  `"variant": "SAMMKirschbaum"`, which sets this option. (Until this version the v1.1 parameters were used with a
+  factor `rateScaleKirschbaum = 4.90`, which pushed the effective `mu_max` above 1; removed.)
 
 After the step:
 
@@ -284,19 +289,18 @@ Values in a material's JSON file override the table.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `variant` | `"SAMM"` | `"SAMM"` or `"SAMMnoAgg"` (parameter set of corrigendum Table 4) |
+| `variant` | `"SAMM"` | `"SAMM"` or `"SAMMnoAgg"` (parameter set of corrigendum Table 4), `"SAMMKirschbaum"` (recalibration, section 7.5; also sets `rateModifiers` `"Kirschbaum"`) |
 | `k_STR`, `k_LAB`, `k_MIC`, `k_MAO`, `mu_max`, `kAgg` | 0.0031, 0.0366, 0.007, 0.00041, 0.337, 0.0323 | rates [d⁻¹] at `corr_F` = 1 |
 | `K_M_MIC_C` | 66.8 | half saturation of `a_MIC` [kg C ha⁻¹ per `refDepth`] |
 | `m_MIC`, `K_LMW_MAO` | 0.00064, 0.018 | maintenance, sorption rate [d⁻¹] |
 | `CUE_STR`, `CUE_LAB`, `CUE_LMW` | 0.57, 0.51, 0.6 | carbon use efficiencies |
 | `MicMinCN`, `MicMaxCN`, `f_MICMAOM`, `pc_STR_LAB` | 5.72, 7.77, 0.21, 2.54 | |
 | `aggfactSTR_C`, `aggfactMAO_C`, `NonMicAgg` | 1.16, 1.57, 32.5 | aggregate formation |
-| `NonMicAggCorrFRef` | 0 (off) | experimental: if > 0, `NonMicAgg` is multiplied by `corr_F / NonMicAggCorrFRef` (1.942 = mean corr_F of the Khon Kaen calibration) |
 | `c_SORP` | 0.049 | used only if no site value results from `cSorp`, mineralogy or latitude (it always does) |
 | `refDepth`, `a_MIC_min`, `leachCap` | 0.15, 0.05, 0.95 | |
 | `maxTurnoverPerStep`, `maxSubsteps` | 1.0, 64 | adaptive sub-steps (section 4.1); 0 = one step per day as in the R code |
 | `f_min`, `f_turn`, `min_imm_frac`, `min_imm_k`, `k_des` | 0.5, 0.10, 0, 0, 0.006 | mineral N coupling and desorption (scenario D) |
-| `rateModifiers`, `rateScaleMONICA`, `rateScaleKirschbaum` | `"MONICA"`, 0.545, 4.90 | section 4.3 (`"MONICA"`, `"SAMM"` or `"Kirschbaum"`) |
+| `rateModifiers`, `rateScaleMONICA` | `"MONICA"`, 0.545 | section 4.3 (`"MONICA"`, `"SAMM"` or `"Kirschbaum"`) |
 | `tillageAggregateDestruction` | 0.20 | section 4.6 |
 | `init_fLMW`, `init_fMIC`, `init_fAggLitter`, `init_AggLitterSTR`, `init_fMAOfree`, `init_freeLitter`, `init_freeLitterSTR` | 0.005, 0.02, 0.10, 0.10, 0.60, 0.03, 0.16 | section 4.4 |
 | `init_CN_MAO`, `init_CN_MIC`, `init_CN_LMW`, `init_CN_Litter` | 9, 10, 20, 142.9 | |
@@ -474,6 +478,44 @@ calibration for these temperate sites:
 
 ---
 
+### 7.5 Recalibrated variant SAMMKirschbaum at Khon Kaen
+
+SAMM was recalibrated with the compiled core (`tests/samm/calibration/samm_calib.cpp`, DREAM(ZS), all seven data
+types, correlated-error likelihood) for Kirschbaum's temperature function × MONICA's moisture function without
+scaling, with density-dependent microbial death, a fitted ninhydrin factor for microbial N, a simple weed model
+(weed roots instead of the constant daily root input), hoeing at litter additions and N deposition + fixation
+(`tests/samm/calibration/results/dream7/README.md`; leave-one-residue-out cross-validation in
+`results/cv_leave_one_residue_out`). The best set is `"variant": "SAMMKirschbaum"`.
+
+MONICA run (`tests/samm/khonkaen_monica/make_setup.py`, variant Kirschbaum: `sim-<TRT>-Kirschbaum.json`): start
+state and root chemistry of the calibration, no constant daily root input; the weed roots of the calibration's weed
+model (`results/dream7/weed_roots.csv`, 248 weedings per treatment, 0.6-5.5 kg C ha⁻¹ d⁻¹) as organic matter on
+the weeding days; hoeing (`Tillage`, 0.15 m) at every litter addition with `tillageAggregateDestruction` =
+aggDestroy; N deposition 9 kg N ha⁻¹ yr⁻¹. MONICA has no weeds here, so their N uptake is missing; this does not
+affect SAMM because the set has no immobilisation of mineral N. Evaluation:
+`python3 tests/samm/khonkaen_monica/eval_kirschbaum.py runs obs.csv`, plot with
+`tests/samm/calibration/plot_eval.R`.
+
+| RMSE / EF (all treatments) | calibration tool (HYDRUS drivers) | MONICA |
+|---|---|---|
+| SOC | 634 / 0.80 | 849 / 0.63 |
+| aggregate C | 880 / −2.36 | 1329 / −6.67 |
+| free MAOC | 177 / 0.81 | 291 / 0.49 |
+| microbial N (as reported) | 24.5 / 0.23 | 24.9 / 0.20 |
+| microbial C | 93 / 0.05 | 99 / −0.08 |
+| soil N | 116 / 0.25 | 132 / 0.02 |
+
+![SAMMKirschbaum in MONICA at Khon Kaen](images/samm_kirschbaum_khonkaen_monica.png)
+
+The control is reproduced (SOC at the end 3377 vs 3516 kg C ha⁻¹), the residue treatments end 0.5-1.6 t C ha⁻¹
+higher. The mean rate modifier is the same (0.405 vs 0.396), the inputs are the same (C balance), and the first
+months agree closely. The difference is the water balance: MONICA drains 781 mm yr⁻¹ below 15 cm, the HYDRUS
+drivers of the calibration 1146 mm yr⁻¹. Less LMW is leached (SAMM_LeachC in GN 226 kg C ha⁻¹ yr⁻¹), more C goes to
+microbial growth and aggregate formation. The calibration tool driven by MONICA's temperature, water content and
+drainage gives the same result as MONICA (GN SOC at the end 8930 vs 8489 kg C ha⁻¹). The parameters are therefore
+tied to the HYDRUS water balance of the calibration; for MONICA either its drainage at Khon Kaen or a
+recalibration with MONICA's drivers is needed.
+
 ## 8. Limitations and open points
 
 - SAMM is calibrated for one tropical sandy site; temperate use needs recalibration (section 7.4).
@@ -487,10 +529,8 @@ calibration for these temperate sites:
 - `get_NetNMineralisationRate()` is signed with SAMM, absolute with DAISY.
 - Aggregate formation by `NonMicAgg` does not depend on temperature and moisture (as in SAMM v1.1). With MONICA's
   drivers this drains free MAOC into aggregates in the dry season; SAMM v1.1 in R does the same with MONICA's
-  drivers. `NonMicAggCorrFRef` = 1.942 (formation proportional to `corr_F`) removes this at Khon Kaen (MONICA:
-  SOC EF 0.36 → 0.54, aggregate C RMSE 1471 → 891, free MAOC RMSE 755 → 612 kg C ha⁻¹), but also removes the
-  seasonal dip of aggregate C that the 2019 measurements show (R with HYDRUS drivers: aggregate C RMSE
-  419 → 848). Experimental, off by default; a partial coupling calibrated against the aggregate data is open.
+  drivers. Making formation proportional to `corr_F` (tested as `NonMicAggCorrFRef`, since removed) removed this
+  at Khon Kaen, but also the seasonal dip of aggregate C that the 2019 measurements show.
 - Known FYM problem of the earlier R work (C build-up under manure): the options `SAMM_ShareToLMW` and
   `SAMM_ShareToMAO` exist to test a different manure split; defaults are 0.
 
@@ -503,7 +543,7 @@ calibration for these temperate sites:
 | Integration | alternative module behind a switch, DAISY default; branch from the Laub-flow release |
 | Mineral N | scenario D: microbes take N only from LMW-N, gross mineralisation to NH4 |
 | Rate modifiers | MONICA's functions, SAMM rates scaled to the Khon Kaen range |
-| Parameter set | SAMM v1.1 with aggregates; SAMMnoAgg selectable |
+| Parameter set | SAMM v1.1 with aggregates; SAMMnoAgg and the recalibrated SAMMKirschbaum selectable |
 | Litter chemistry | literature values for all residues, roots and manures, table in the MONICA repository |
 | Structural C | 0.63 × lignin + 0.53 × polyphenols |
 | Manure | lignin + polyphenols to STR, rest LAB, NH4/NO3 mineral; optional shares to LMW/MAO |

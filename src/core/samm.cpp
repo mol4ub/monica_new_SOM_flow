@@ -48,6 +48,36 @@ Params Params::sammNoAgg_v11() {
   return p;
 }
 
+Params Params::samm_kirschbaum() {
+  // DREAM run 7 (tests/samm/calibration/results/dream7/best.csv), rounded to 4 significant digits
+  Params p;
+  p.k_STR = 0.007702;
+  p.k_LAB = 0.1176;
+  p.k_MIC = 0.007573;
+  p.k_MAO = 3.537e-05;
+  p.mu_max = 0.7057;
+  p.kAgg = 0.009948;
+  p.K_M_MIC_C = 2.568;
+  p.m_MIC = 9.721e-05;
+  p.K_LMW_MAO = 0.002656;
+  p.CUE_STR = 0.5584;
+  p.CUE_LAB = 0.07513;
+  p.MicMinCN = 4.971;
+  p.MicMaxCN = 6.247;
+  p.f_MICMAOM = 0.07545;
+  p.pc_STR_LAB = 2.091;
+  p.aggfactSTR_C = 1.395;
+  p.aggfactMAO_C = 0.1470;
+  p.NonMicAgg = 1.738;
+  p.betaMIC = 1.967;
+  p.f_min = 0.6575;
+  p.f_turn = 0.8632;
+  p.min_imm_frac = 0.0;
+  p.min_imm_k = 0.0;
+  p.k_des = 0.0;
+  return p;
+}
+
 double totalC(const LayerPools& y) {
   return y[STR_C] + y[LAB_C] + y[LMW_C] + y[MIC_C] + y[MAO_C] + y[AggSTR_C] + y[AggLAB_C] + y[AggMAO_C];
 }
@@ -124,7 +154,7 @@ void Profile::derivatives(const std::vector<LayerPools>& y, const Drivers& drv,
     const double corr_F = ld.corrF;
     const double depthScale = env.thickness / p.refDepth;
     const double K_M_MIC_C = p.K_M_MIC_C * depthScale;
-    const double NonMicAgg = p.NonMicAgg * depthScale * (p.NonMicAggCorrFRef > 0 ? corr_F / p.NonMicAggCorrFRef : 1.0);
+    const double NonMicAgg = p.NonMicAgg * depthScale;
     const double MAO_C_max = env.maoCmax(p);
 
     const double STR_Cv = s[STR_C], LAB_Cv = s[LAB_C], LMW_Cv = s[LMW_C], MIC_Cv = s[MIC_C], MAO_Cv = s[MAO_C];

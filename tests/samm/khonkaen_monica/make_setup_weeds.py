@@ -60,7 +60,6 @@ def main(params_csv, out):
     site = json.load(open(os.path.join(HERE, "site-MONICA.json")))
     samm = find_samm(site)
     samm["rateModifiers"] = "Kirschbaum"
-    samm["rateScaleKirschbaum"] = 1.0
     samm["params"] = {k: p[k] for k in SAMM_PARAMS}
     samm["params"].update({"f_min": 0.0, "f_turn": 0.0, "k_des": 0.0})
     samm["dailyLitterC"] = p["Daily_Litter_C"]; samm["dailyLitterCN"] = p["Daily_Litter_CN"]

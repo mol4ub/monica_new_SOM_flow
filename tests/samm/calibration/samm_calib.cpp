@@ -7,7 +7,8 @@
 //
 // build: g++ -O3 -std=c++17 -pthread -I src/core tests/samm/calibration/samm_calib.cpp src/core/samm.cpp -o samm_calib
 // usage: samm_calib <climate_file.csv> <AllMeasurements.csv> <mode> [options]
-//   modes:  eval <params.csv> <out.csv>    run one parameter set, write daily pools of all treatments
+//   modes:  eval <params.csv> <out.csv> [obs.csv] [roots.csv]   run one parameter set, write daily pools of all
+//                                          treatments (obs.csv: measured vs simulated; roots.csv: weed root inputs)
 //           ga <out_prefix>                genetic algorithm, writes <prefix>_best.csv and <prefix>_log.csv
 //           sir <prior.csv> <samples.csv>  draws --n parameter sets from the prior (name,mean,sd,lo,hi: normal, truncated
 //                                          to [lo,hi]) and writes each set with its log-likelihood (resampling:
@@ -148,6 +149,7 @@ struct Result {
   std::vector<std::array<double, NUM_POOLS + NEXTRA>> rows;
   bool ok = true;
   double weedRainySum = 0; int weedRainyN = 0;  // above-ground weed biomass at rainy-season weedings [kg DM/ha]
+  std::vector<std::array<double, 4>> rootInputs;  // weed roots left at weeding: day, C, structural share, C:N
 };
 
 // weeding (--weeds): monthly on the 15th in the rainy season (April-September), every second month in the dry season
@@ -292,6 +294,7 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
         if (weedRainy[time]) { res.weedRainySum += wA; res.weedRainyN++; }
         // above-ground biomass removed from the plot, roots stay in the soil as litter
         const double rootC = wR * C_ROOT;
+        if (keepRows) res.rootInputs.push_back({double(time), rootC, DLSTR, DLCN});
         y[0][STR_C] += rootC * DLSTR; y[0][LAB_C] += rootC * (1 - DLSTR); y[0][LAB_N] += rootC / DLCN;
         wA = W0 * (1 - wRoot); wR = W0 * wRoot;
       }
@@ -509,11 +512,15 @@ int main(int argc, char** argv) {
     out << "time";
     for (int k = 0; k < NUM_POOLS; k++) out << "," << poolName(k);
     out << ",LitterBagSTR_C,LitterBagLAB_C,LitterBagLAB_N,WeedAGB,WeedRoot,MinN,TRT\n";
+    std::ofstream roots;
+    if (pos.size() > 3) { roots.open(pos[3]); roots.precision(10); roots << "TRT,day,rootC,STRshare,CN\n"; }
     for (int ti = 0; ti < 5; ti++) {
       auto r = run(x, ti, clim, cfg, true, nullptr, nullptr);
       for (size_t i = 0; i < r.rows.size(); i++) {
         out << i + 1; for (double v : r.rows[i]) out << "," << v; out << "," << trtNames[ti] << "\n";
       }
+      if (roots.is_open())
+        for (const auto& a : r.rootInputs) roots << trtNames[ti] << "," << a[0] << "," << a[1] << "," << a[2] << "," << a[3] << "\n";
     }
     if (pos.size() > 2) {
       std::ofstream o2(pos[2]); o2.precision(10);

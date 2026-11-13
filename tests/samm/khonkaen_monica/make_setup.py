@@ -9,6 +9,12 @@ usage: python3 make_setup.py [power.json]
 Writes climate.csv, site-<modifiers>.json, crop-<treatment>.json (litter parameters inline) and
 sim-<treatment>-<modifiers>.json (modifiers: SAMM = SAMM's own temperature/moisture functions,
 MONICA = MONICA's functions with the rate scaling) into this directory.
+
+Variant "Kirschbaum" (site-Kirschbaum.json, crop-<treatment>-Kirschbaum.json, sim-<treatment>-Kirschbaum.json):
+the recalibrated parameter set SAMMKirschbaum (DREAM run 7, tests/samm/calibration/results/dream7) as in its
+calibration: start state with the root chemistry of run 7, no constant daily root input but the weed roots of run 7's
+weed model (weed_roots.csv: added on each weeding day as organic matter), hoeing at each litter addition
+(tillageAggregateDestruction = aggDestroy), N deposition 7 + free-living fixation 2 kg N/ha/yr.
 """
 import datetime as dt
 import json
@@ -31,6 +37,9 @@ TREATMENTS = {
     "TM": (4300, 136, 0.17, 0.427),
 }
 DEPTH, BD, SICL = 0.15, 1450.0, 0.176
+# DREAM run 7: weed root chemistry (Daily_Litter_CN, Daily_LitterSTR_C), aggregate destruction by hoeing (aggDestroy)
+RUN7 = os.path.join(os.path.dirname(HERE), "calibration", "results", "dream7")
+ROOT_C_CONTENT = 0.42
 # start state of the R code (kg C ha-1 in 0-15 cm)
 INIT = dict(LMW=100.0, MIC=100.0, MAO_total=1665.0, AggMAO=575.0, AggLitter=1400.0, AggLitterSTR=0.1,
             SystemC=4900.0, LitterSTR=0.16)
@@ -55,9 +64,26 @@ def write_climate(power_path):
     print(f"climate.csv: {len(days)} days")
 
 
+def run7_params():
+    return {r.split(",")[0]: float(r.split(",")[1]) for r in open(os.path.join(RUN7, "best.csv")).read().split()[1:]}
+
+
 def samm_settings(modifiers):
     soc = INIT["SystemC"] - (INIT["SystemC"] - INIT["LMW"] - INIT["MIC"] - INIT["MAO_total"] - INIT["AggLitter"])
     free_litter = INIT["SystemC"] - soc
+    if modifiers == "Kirschbaum":
+        x = run7_params()
+        return {
+            "variant": "SAMMKirschbaum",
+            "dailyLitterC": 0.0,
+            "init_fLMW": INIT["LMW"] / soc, "init_fMIC": INIT["MIC"] / soc,
+            "init_fAggLitter": INIT["AggLitter"] / soc, "init_AggLitterSTR": INIT["AggLitterSTR"],
+            "init_fMAOfree": (INIT["MAO_total"] - INIT["AggMAO"]) / INIT["MAO_total"],
+            "init_freeLitter": free_litter / soc, "init_freeLitterSTR": x["Daily_LitterSTR_C"],
+            "init_CN_MAO": 9, "init_CN_MIC": 10, "init_CN_LMW": 20, "init_CN_Litter": x["Daily_Litter_CN"],
+            "cSorp": 0.049,
+            "tillageAggregateDestruction": x["aggDestroy"],
+        }, soc
     return {
         "variant": "SAMM",
         "rateModifiers": modifiers,
@@ -79,7 +105,8 @@ def write_site(modifiers):
     soc_frac = soc / (DEPTH * 10000 * BD)  # kg C kg-1 soil
     site = {
         "SiteParameters": {
-            "Latitude": 16.3333, "Slope": 0, "HeightNN": [175, "m"], "NDeposition": [0, "kg N ha-1 y-1"],
+            "Latitude": 16.3333, "Slope": 0, "HeightNN": [175, "m"],
+            "NDeposition": [9 if modifiers == "Kirschbaum" else 0, "kg N ha-1 y-1"],
             "SoilProfileParameters": [
                 {"Thickness": [DEPTH, "m"], "SoilOrganicCarbon": [soc_frac * 100, "%"],
                  # measured silt + clay 0.176 (as in the SAMM R code); 90% sand of the paper is an older classification
@@ -100,6 +127,48 @@ def write_site(modifiers):
     }
     path = os.path.join(HERE, f"site-{modifiers}.json")
     json.dump(site, open(path, "w"), indent=2)
+
+
+def organic_matter(oid, name, ccont, cn, fstr):
+    """all C in one AOM pool with C:N cn, so that the organic N is C / cn; structural share fstr of the C
+    (lignin = share * C content / 0.63, no polyphenols)"""
+    return {"type": "OrganicFertiliserParameters", "id": oid, "name": name,
+            "AOM_DryMatterContent": [1.0, "kg DM kg FM-1"], "CorgContent": [ccont, "kg C kg DM-1"],
+            "AOM_NH4Content": [0.0, "kg N kg DM-1"], "AOM_NO3Content": [0.0, "kg N kg DM-1"],
+            "AOM_CarbamidContent": 0.0,
+            "PartAOM_to_AOM_Fast": [1.0, "kg kg-1"], "PartAOM_to_AOM_Slow": [0.0, "kg kg-1"],
+            "CN_Ratio_AOM_Fast": cn, "CN_Ratio_AOM_Slow": 100,
+            "AOM_FastDecCoeffStandard": [0.002, "d-1"], "AOM_SlowDecCoeffStandard": [0.0002, "d-1"],
+            "PartAOM_Slow_to_SMB_Slow": [0.0, "kg kg-1"], "PartAOM_Slow_to_SMB_Fast": [1.0, "kg kg-1"],
+            "NConcentration": 0.0,
+            "SAMM_Lignin": [fstr * ccont / 0.63, "kg kg DM-1"], "SAMM_Polyphenols": [0.0, "kg kg DM-1"]}
+
+
+def write_crops_kirschbaum():
+    """litter additions, hoeing at each litter addition (all treatments) and the weed roots of run 7"""
+    roots = [r.split(",") for r in open(os.path.join(RUN7, "weed_roots.csv")).read().split()[1:]]
+    for trt, (c, n, fstr, ccont) in TREATMENTS.items():
+        steps = []
+        for d in ADD_DAYS:
+            if d > LAST_DAY:
+                continue
+            if c > 0:
+                steps.append((d, 0, {"type": "OrganicFertilization", "amount": [c / ccont, "kg FM ha-1"],
+                                     "incorporation": True,
+                                     "parameters": organic_matter(f"KK_{trt}", f"Khon Kaen litter {trt}", ccont, c / n, fstr)}))
+            steps.append((d, 1, {"type": "Tillage", "depth": [DEPTH, "m"]}))
+        for t, day, rc, rstr, rcn in roots:
+            if t != trt or int(float(day)) > LAST_DAY:
+                continue
+            rc, rstr, rcn = float(rc), float(rstr), float(rcn)
+            steps.append((int(float(day)), 2, {"type": "OrganicFertilization", "amount": [rc / ROOT_C_CONTENT, "kg FM ha-1"],
+                                               "incorporation": True,
+                                               "parameters": organic_matter("KK_weed_roots", "weed roots (run 7)",
+                                                                            ROOT_C_CONTENT, rcn, rstr)}))
+        steps.sort(key=lambda s: (s[0], s[1]))
+        worksteps = [dict({"date": date_of_day(d).isoformat()}, **w) for d, _, w in steps]
+        crop = {"crops": {}, "cropRotation": [{"worksteps": worksteps}], "CropParameters": ["include-from-file", "general/crop.json"]}
+        json.dump(crop, open(os.path.join(HERE, f"crop-{trt}-Kirschbaum.json"), "w"), indent=1)
 
 
 def write_organic_matter_and_crops():
@@ -136,10 +205,10 @@ def write_organic_matter_and_crops():
 def write_sims():
     pools = ["STR_C", "LAB_C", "LMW_C", "MIC_C", "MAO_C", "AggSTR_C", "AggLAB_C", "AggMAO_C",
              "LAB_N", "LMW_N", "MIC_N", "MAO_N", "AggLAB_N", "AggMAO_N"]
-    for modifiers in ("SAMM", "MONICA"):
+    for modifiers in ("SAMM", "MONICA", "Kirschbaum"):
         for trt in TREATMENTS:
             sim = {
-                "crop.json": f"crop-{trt}.json", "site.json": f"site-{modifiers}.json", "climate.csv": "climate.csv",
+                "crop.json": f"crop-{trt}-Kirschbaum.json" if modifiers == "Kirschbaum" else f"crop-{trt}.json", "site.json": f"site-{modifiers}.json", "climate.csv": "climate.csv",
                 "climate.csv-options": {"no-of-climate-file-header-lines": 2, "csv-separator": ",",
                                         "start-date": date_of_day(1).isoformat(),
                                         "end-date": date_of_day(LAST_DAY).isoformat()},
@@ -163,5 +232,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         write_climate(sys.argv[1])
     write_organic_matter_and_crops()
+    write_crops_kirschbaum()
     write_sims()
     print("set-up written to", HERE)

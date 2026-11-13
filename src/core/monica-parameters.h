@@ -989,23 +989,22 @@ struct DLL_API SticsParameters : public Tools::Json11Serializable {
  * Read from the object "SAMM" in the soil organic parameters, see documentation/samm.md.
  */
 struct DLL_API SAMMSettings {
-  //! "SAMM" (with aggregates, default) or "SAMMnoAgg": selects the default parameter set
+  //! selects the default parameter set: "SAMM" (v1.1 with aggregates, default), "SAMMnoAgg" (v1.1 without
+  //! aggregates) or "SAMMKirschbaum" (recalibrated for rateModifiers "Kirschbaum", which it also sets)
   std::string variant{"SAMM"};
   samm::Params params{samm::Params::samm_v11()};
 
   //! "MONICA": MONICA's temperature and moisture functions (as for DAISY), with all SAMM rates multiplied by
   //! rateScaleMONICA, so that the mean rates over the Khon Kaen calibration period are the same as with SAMM's
   //! own functions; "SAMM": the functions of the SAMM paper (2^((T-20)/10) and the pF scalar);
-  //! "Kirschbaum": Kirschbaum's (1995) temperature function (maximum 1 at 36.9 C) with MONICA's moisture function,
-  //! scaled by rateScaleKirschbaum
+  //! "Kirschbaum": Kirschbaum's (1995) temperature function (maximum 1 at 36.9 C) times MONICA's moisture function
+  //! exp(-18 (theta / saturation - MoistureDecOptimal)^2), without scaling (use with variant "SAMMKirschbaum")
   std::string rateModifiers{"MONICA"};
   //! mean of SAMM's modifiers / mean of MONICA's (kaiteew functions, Q10 3.15, optimum 38.2 C and 45% of
   //! saturation, as in general/soil-organic.json) over the 9070 days of the Khon Kaen drivers of the SAMM paper
   //! (soil temperature at 7.5 cm, water content and pF; MONICA's saturation of that soil 0.468):
   //! 1.9420 / 3.5604 = 0.545
   double rateScaleMONICA{0.545};
-  //! the same for rateModifiers "Kirschbaum": 1.9420 / 0.3964 = 4.90
-  double rateScaleKirschbaum{4.90};
 
   //! fraction of the aggregate pools released to the free pools in the tilled layers per tillage event
   double tillageAggregateDestruction{0.20};

@@ -85,10 +85,6 @@ struct Params {
   double aggfactMAO_C{1.57};
   double NonMicAgg{32.5};      //!< physicochemical aggregate formation [kg MIC-C eq ha-1 d-1 per refDepth]
   double refDepth{0.15};       //!< depth K_M_MIC_C and NonMicAgg refer to [m]
-  //! if > 0: physicochemical aggregate formation follows the rate modifier, NonMicAgg * corr_F / NonMicAggCorrFRef,
-  //! like aggregate breakdown; the value is the mean corr_F at which NonMicAgg was calibrated (1.942 for Khon Kaen).
-  //! 0 (default) = constant formation as in SAMM v1.1
-  double NonMicAggCorrFRef{0.0};
   //! density-dependent microbial death: death rate k_MIC * (MIC_C / MIC_ref)^(betaMIC - 1) (Georgiou et al. 2017);
   //! 1 (default) = linear death as in SAMM v1.1, 2 = quadratic
   double betaMIC{1.0};
@@ -111,6 +107,11 @@ struct Params {
   static Params samm_v11();
   //! SAMMnoAgg v1.1 (corrigendum Table 4, SAMMnoAgg column), scenario D mineral N coupling
   static Params sammNoAgg_v11();
+  //! SAMM recalibrated for Kirschbaum's temperature function x MONICA's moisture function without scaling
+  //! (rateModifiers "Kirschbaum"): highest-likelihood set of DREAM run 7 against all Khon Kaen data, with
+  //! density-dependent microbial death and mineral N release (f_min, f_turn) but no immobilisation of mineral N
+  //! and no desorption (tests/samm/calibration/results/dream7)
+  static Params samm_kirschbaum();
   //! switch off the scenario D extensions (pure SAMM v1.1 as in the R code)
   Params& withoutMineralN() { f_min = 0; f_turn = 0; min_imm_frac = 0; min_imm_k = 0; k_des = 0; return *this; }
 };

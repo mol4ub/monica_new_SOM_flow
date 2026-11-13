@@ -4,7 +4,9 @@
 args <- commandArgs(TRUE); C <- args[1]; DATA <- args[2]; run <- args[3]; out <- args[4]
 caption <- if (length(args) > 4) gsub("\\\\n", "\n", args[5]) else paste0("SAMM ", run, ", best parameter set")
 o <- read.csv(file.path(C, paste0(run, "_obs.csv")))
-band <- read.csv(file.path(C, paste0(run, "_band.csv")))
+bandFile <- file.path(C, paste0(run, "_band.csv"))  # optional: without it, no simulated intervals
+band <- if (file.exists(bandFile)) read.csv(bandFile) else data.frame(TRT = character(), time = numeric(),
+                                                                       quantity = character(), q025 = numeric(), q975 = numeric())
 m <- read.csv(file.path(DATA, "AllMeasurements.csv"), sep = ";", check.names = FALSE, fileEncoding = "UTF-8-BOM")
 m$key <- paste(m$Treatment, m[["Day of simulation"]], m[["Measurement type"]])
 o$key <- paste(o$TRT, o$day, o$type)
@@ -26,6 +28,7 @@ layout(matrix(c(1, 2, 3, 4, 5, 6, 7, 8, 8), 3, 3, byrow = TRUE))
 par(mar = c(4, 4.5, 3, 1), mgp = c(2.6, 0.7, 0), cex.axis = 1.1, cex.lab = 1.2)
 for (ty in names(panels)) {
   d <- o[o$type == ty & is.finite(o$sim), ]
+  if (nrow(d) == 0) { plot.new(); title(main = panels[[ty]], cex.main = 1.4); text(0.5, 0.5, "not simulated", cex = 1.3); next }
   rng <- range(c(0, d$obs - 1.96 * d$sd, d$obs + 1.96 * d$sd, d$lo, d$hi, d$sim), na.rm = TRUE); rng[1] <- max(0, rng[1])
   plot(NA, xlim = rng, ylim = rng, xlab = "Measured value", ylab = "Simulated value", main = panels[[ty]], cex.main = 1.4)
   segments(pmax(d$obs - 1.96 * d$sd, 0), d$sim, d$obs + 1.96 * d$sd, d$sim, col = "grey75")

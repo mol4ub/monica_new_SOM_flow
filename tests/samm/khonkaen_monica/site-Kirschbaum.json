@@ -1,0 +1,109 @@
+{
+  "SiteParameters": {
+    "Latitude": 16.3333,
+    "Slope": 0,
+    "HeightNN": [
+      175,
+      "m"
+    ],
+    "NDeposition": [
+      9,
+      "kg N ha-1 y-1"
+    ],
+    "SoilProfileParameters": [
+      {
+        "Thickness": [
+          0.15,
+          "m"
+        ],
+        "SoilOrganicCarbon": [
+          0.15011494252873564,
+          "%"
+        ],
+        "Sand": [
+          0.824,
+          "kg kg-1"
+        ],
+        "Clay": [
+          0.05,
+          "kg kg-1"
+        ],
+        "pH": 5.5,
+        "CN": 10,
+        "SoilBulkDensity": [
+          1450.0,
+          "kg m-3"
+        ]
+      },
+      {
+        "Thickness": [
+          1.8,
+          "m"
+        ],
+        "SoilOrganicCarbon": [
+          0.1,
+          "%"
+        ],
+        "Sand": [
+          0.88,
+          "kg kg-1"
+        ],
+        "Clay": [
+          0.07,
+          "kg kg-1"
+        ],
+        "pH": 5.5,
+        "CN": 10,
+        "SoilBulkDensity": [
+          1500,
+          "kg m-3"
+        ]
+      }
+    ]
+  },
+  "SoilTemperatureParameters": [
+    "include-from-file",
+    "general/soil-temperature.json"
+  ],
+  "EnvironmentParameters": {
+    "=": [
+      "include-from-file",
+      "general/environment.json"
+    ],
+    "LeachingDepth": 1.5,
+    "WindSpeedHeight": 2.0
+  },
+  "SoilOrganicParameters": {
+    "=": [
+      "include-from-file",
+      "general/soil-organic.json"
+    ],
+    "SOM_Model": "SAMM",
+    "MaxMineralisationDepth": 0.15,
+    "SAMM": {
+      "variant": "SAMMKirschbaum",
+      "dailyLitterC": 0.0,
+      "init_fLMW": 0.030627871362940276,
+      "init_fMIC": 0.030627871362940276,
+      "init_fAggLitter": 0.42879019908116384,
+      "init_AggLitterSTR": 0.1,
+      "init_fMAOfree": 0.6546546546546547,
+      "init_freeLitter": 0.5007656967840735,
+      "init_freeLitterSTR": 0.283016509,
+      "init_CN_MAO": 9,
+      "init_CN_MIC": 10,
+      "init_CN_LMW": 20,
+      "init_CN_Litter": 21.48889769,
+      "cSorp": 0.049,
+      "tillageAggregateDestruction": 0.002538857944
+    }
+  },
+  "SoilTransportParameters": [
+    "include-from-file",
+    "general/soil-transport.json"
+  ],
+  "SoilMoistureParameters": [
+    "include-from-file",
+    "general/soil-moisture.json"
+  ]
+}

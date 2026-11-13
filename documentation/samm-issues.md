@@ -1,6 +1,6 @@
 # SAMM in MONICA: critical issues found and their status
 
-Status as of 2026-11-12, branch `samm-som-module`. Details of the implementation are in [samm.md](samm.md).
+Status as of 2026-11-13, branch `samm-som-module`. Details of the implementation are in [samm.md](samm.md).
 
 Summary:
 
@@ -12,15 +12,16 @@ Summary:
 | 4 | DAISY results changed by the SAMM / Laub-flow code | **fixed** (DAISY bit-identical) |
 | 5 | Measurement dates 15 days off the climate calendar | **fixed** (matched by simulation day) |
 | 6 | Spin-up crash, climate file parsing, litter chemistry table parsing | **fixed** |
-| 7 | Aggregate formation constant while aggregate breakdown follows the rate modifier: free MAOC drained into aggregates in the dry season | **open** (experimental option, overcorrects) |
-| 8 | Rates scaled to the mean of another rate modifier: effective `mu_max` above 1 d⁻¹ | **in progress** (recalibration with Kirschbaum × MONICA moisture) |
-| 9 | Recalibration: parameters at their bounds, very fast aggregate turnover, microbial C too high | **open** |
+| 7 | Aggregate formation constant while aggregate breakdown follows the rate modifier: free MAOC drained into aggregates in the dry season | **open** (tested option overcorrected, removed) |
+| 8 | Rates scaled to the mean of another rate modifier: effective `mu_max` above 1 d⁻¹ | **fixed** (recalibrated variant `SAMMKirschbaum`, no scaling) |
+| 9 | Recalibration: parameters at their bounds; litter-quality effect on SOC does not transfer between residues | **open** |
 | 10 | SAMM's pF moisture scalar with MONICA's pF of sandy soils | **open** (MONICA's moisture function used instead) |
 | 11 | Silt + clay of the Khon Kaen soil: 0.10 in MONICA, 0.176 (measured) in the R code | **fixed** (sand 82.4%) |
 | 12 | Total MAOC lower with MONICA's drivers than with HYDRUS (control) | **open** (cause not confirmed) |
 | 13 | Soil N overestimated in the litter treatments | **open** |
 | 14 | N mineralisation at temperate sites 2.8-3.5 × DAISY | **open** (needs calibration) |
 | 15 | Windows release `3.7.4.samm` built before the sub-steps | **open** (needs a new build) |
+| 16 | `SAMMKirschbaum` tied to the HYDRUS water balance of its calibration: MONICA drains less below 15 cm, SOC of the residue treatments 0.5-1.6 t C/ha too high | **open** |
 
 ---
 
@@ -106,7 +107,7 @@ Summary:
 - **Not a MONICA coupling error:** SAMM v1.1 in R run with MONICA's temperature, moisture, percolation and modifier
   reproduces MONICA (mean SOC difference 16-254 kg C ha⁻¹; control free MAOC at the end 18 vs 18 kg C ha⁻¹).
   It is a property of SAMM's equations that HYDRUS's nearly constant corr_F hides.
-- **Tested:** `NonMicAggCorrFRef` (formation proportional to corr_F, commit `e8fe404`, off by default). In MONICA it
+- **Tested:** `NonMicAggCorrFRef` (formation proportional to corr_F, commit `e8fe404`; removed again). In MONICA it
   improves SOC (EF 0.36 → 0.54), aggregate C (RMSE 1471 → 891) and free MAOC (755 → 612), but in R with HYDRUS it
   removes the seasonal dip of aggregate C that the 2019 data show (aggregate C RMSE 419 → 848): it overcorrects.
 - **Proposed:** partial coupling `NonMicAgg · (corr_F/ref)^β`, β calibrated together with the other parameters.
@@ -118,14 +119,16 @@ Summary:
   `rateScaleKirschbaum` = 4.90). The peaks then differ: effective `mu_max` up to 0.337 × 7.27 ≈ 2.4 d⁻¹ (MONICA)
   or ≈ 1.7 d⁻¹ (Kirschbaum), although it should be a maximum rate. SAMM's own function also exceeds 1 on hot days
   (effective `mu_max` about 1.2 d⁻¹).
-- **In progress:** recalibration with Kirschbaum's temperature function × MONICA's moisture function (both ≤ 1, no
-  scale factor), `mu_max` ≤ 0.95, genetic algorithm with the objective of the paper (Gaussian log-likelihood of
+- **Fixed:** recalibration with Kirschbaum's temperature function × MONICA's moisture function (both ≤ 1, no
+  scale factor), `mu_max` ≤ 0.95. First genetic algorithm with the objective of the paper (Gaussian log-likelihood of
   litterbag C, microbial N, SOC, aggregate C and free MAOC, median variance per data type). Tool:
   `tests/samm/calibration/`.
   - Reference: SAMM v1.1 with its own modifiers, log-likelihood −4277.7.
   - Bounded run b1: −4035.3 (stopped early after 60 generations without improvement); run b2 −3995 at
     generation 457 and still improving; benchmark run with SAMM's modifiers and the same bounds pending.
-- The recalibrated set is not yet in MONICA (planned: `"variant": "SAMMKirschbaum"`, scale factor 1).
+- Final calibration: DREAM run 7 (all seven data types, correlated-error likelihood, density-dependent death, weed
+  model; `tests/samm/calibration/results/dream7`). In MONICA as `"variant": "SAMMKirschbaum"`; `rateScaleKirschbaum`
+  removed (samm.md, section 7.5).
 
 ### 9. Problems of the recalibration so far
 
@@ -164,6 +167,12 @@ Summary:
   tamarind, in R (EF −1.24) and more in MONICA (−6.05). The recalibration improves it (−0.33). Soil N was not used
   in the calibration of the paper.
 
+- **Cross-validation** (leave one residue out, `results/cv_leave_one_residue_out`): litterbags and microbial N
+  transfer to an unseen residue, SOC and free MAOC do not (SOC EF 0.71 in-sample, 0.09 held-out; DP +1.3, TM
+  −1.0 t C ha⁻¹). Without DP the aggregate parameters change strongly; without RS `CUE_STR` is bimodal (one mode
+  near 0). The pathway litter quality → STR → aggregates / MAOC is the weak part; CUE lower bounds of 0.1-0.2 are
+  advisable.
+
 ### 14. N mineralisation at temperate sites
 
 - With SAMM switched on in the Müncheberg test suite, SOC fits better than DAISY (RMSE 3.9-4.6 t in fertilised
@@ -175,6 +184,17 @@ Summary:
 
 - The released Windows build `3.7.4.samm` predates the adaptive sub-steps and the Kirschbaum option; a new build is
   needed to use them on Windows. The standalone SAMM package (`tests/samm/calibration/standalone/`) is up to date.
+
+### 16. SAMMKirschbaum and MONICA's water balance
+
+- In MONICA (Khon Kaen set-up variant Kirschbaum, with the weed roots of the calibration as inputs) the control is
+  reproduced, but SOC of the residue treatments ends 0.5-1.6 t C ha⁻¹ higher than in the calibration (SOC EF 0.63 vs
+  0.80, aggregate C RMSE 1329 vs 880 kg C ha⁻¹).
+- **Cause:** MONICA drains 781 mm yr⁻¹ below 15 cm, the HYDRUS drivers of the calibration 1146 mm yr⁻¹; less LMW
+  is leached and more goes to microbial growth and aggregates. The calibration tool with MONICA's drivers gives the
+  same result as MONICA; rate modifier, inputs and the SAMM implementation agree.
+- **Options:** check MONICA's water balance at Khon Kaen against HYDRUS / measurements, or recalibrate with MONICA's
+  drivers (the tool takes any driver file).
 
 ---
 

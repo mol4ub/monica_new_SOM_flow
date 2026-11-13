@@ -2319,7 +2319,7 @@ std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
     {"f_MICMAOM", &samm::Params::f_MICMAOM}, {"pc_STR_LAB", &samm::Params::pc_STR_LAB},
     {"aggfactSTR_C", &samm::Params::aggfactSTR_C}, {"aggfactMAO_C", &samm::Params::aggfactMAO_C},
     {"NonMicAgg", &samm::Params::NonMicAgg}, {"refDepth", &samm::Params::refDepth},
-    {"NonMicAggCorrFRef", &samm::Params::NonMicAggCorrFRef}, {"betaMIC", &samm::Params::betaMIC},
+    {"betaMIC", &samm::Params::betaMIC},
     {"MIC_ref", &samm::Params::MIC_ref},
     {"a_MIC_min", &samm::Params::a_MIC_min}, {"leachCap", &samm::Params::leachCap},
     {"maxTurnoverPerStep", &samm::Params::maxTurnoverPerStep}, {"maxSubsteps", &samm::Params::maxSubsteps},
@@ -2331,7 +2331,7 @@ std::vector<std::pair<const char*, double samm::Params::*>> sammParamMembers() {
 
 std::vector<std::pair<const char*, double SAMMSettings::*>> sammSettingMembers() {
   return {
-    {"rateScaleMONICA", &SAMMSettings::rateScaleMONICA}, {"rateScaleKirschbaum", &SAMMSettings::rateScaleKirschbaum},
+    {"rateScaleMONICA", &SAMMSettings::rateScaleMONICA},
     {"tillageAggregateDestruction", &SAMMSettings::tillageAggregateDestruction},
     {"init_fLMW", &SAMMSettings::init_fLMW}, {"init_fMIC", &SAMMSettings::init_fMIC},
     {"init_fAggLitter", &SAMMSettings::init_fAggLitter}, {"init_AggLitterSTR", &SAMMSettings::init_AggLitterSTR},
@@ -2368,7 +2368,8 @@ Errors SAMMSettings::merge(json11::Json j) {
     variant = j["variant"].string_value();
     if (variant == "SAMMnoAgg") params = samm::Params::sammNoAgg_v11();
     else if (variant == "SAMM") params = samm::Params::samm_v11();
-    else res.errors.push_back(std::string("SAMM: unknown variant '") + variant + "' (SAMM or SAMMnoAgg)");
+    else if (variant == "SAMMKirschbaum") { params = samm::Params::samm_kirschbaum(); rateModifiers = "Kirschbaum"; }
+    else res.errors.push_back(std::string("SAMM: unknown variant '") + variant + "' (SAMM, SAMMnoAgg or SAMMKirschbaum)");
   }
   auto pj = j["params"].is_object() ? j["params"] : j;
   for (const auto& [name, member] : sammParamMembers()) set_double_value(params.*member, pj, name);
