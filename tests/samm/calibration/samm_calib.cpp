@@ -737,7 +737,10 @@ int main(int argc, char** argv) {
       for (int t = 0; t < threads; t++) th.emplace_back([&]() {
         for (long k; (k = next++) < n;) {
           auto r = run(S[k], ti, clim, cfg, true, nullptr, nullptr);
-          for (int day = 0; day < LAST && day < int(r.rows.size()); day++) for (int q = 0; q < 7; q++) vals[q][day][k] = float(qv(r.rows[day], q));
+          // microbial N as reported (data converted with the ninhydrin factor 3.1, see fN_ninhydrin)
+          const double fNcorr = FN_USED / S[k][22];
+          for (int day = 0; day < LAST && day < int(r.rows.size()); day++) for (int q = 0; q < 7; q++)
+            vals[q][day][k] = float(qv(r.rows[day], q) * (q == 1 ? fNcorr : 1.0));
         }
       });
       for (auto& t : th) t.join();
