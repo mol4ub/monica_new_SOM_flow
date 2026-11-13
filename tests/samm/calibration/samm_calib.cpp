@@ -126,19 +126,25 @@ static Params toParams(const std::vector<double>& x) {
 // before each addition and refilled with the added litter
 struct Bag { double STR, LAB, LABN; };
 
-struct Result { std::vector<std::array<double, NUM_POOLS + NEXTRA>> rows; bool ok = true; };
+struct Result {
+  std::vector<std::array<double, NUM_POOLS + NEXTRA>> rows;
+  bool ok = true;
+  double weedRainySum = 0; int weedRainyN = 0;  // above-ground weed biomass at rainy-season weedings [kg DM/ha]
+};
 
 // weeding (--weeds): monthly on the 15th in the rainy season (April-September), every second month in the dry season
 // (15 November, January, March), and at every litter incorporation (Laub et al. 2022); day 1 = 1995-03-01
+static std::vector<char> weedRainy;  // 1 on weeding days in April-September
 static bool weedingDay(int day) {
   static std::vector<char> w;
   if (w.empty()) {
-    w.assign(LAST + 400, 0);
+    w.assign(LAST + 400, 0); weedRainy.assign(LAST + 400, 0);
     int y = 1995, m = 3, dd = 1;
     const int ml[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     for (int t = 1; t < int(w.size()); t++) {
       if (dd == 15 && ((m >= 4 && m <= 9) || m == 11 || m == 1 || m == 3)) w[t] = 1;
       if (addDays.count(t) && t > 1) w[t] = 1;
+      if (w[t] && m >= 4 && m <= 9) weedRainy[t] = 1;
       int len = ml[m - 1] + (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) ? 1 : 0);
       if (++dd > len) { dd = 1; if (++m > 12) { m = 1; y++; } }
     }
@@ -254,6 +260,7 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
       minN = std::max(0.0, minN + gross - imm - dW * nPerDM - leachN);
       wA += dW * (1 - wRoot); wR += dW * wRoot;
       if (weedingDay(time)) {
+        if (weedRainy[time]) { res.weedRainySum += wA; res.weedRainyN++; }
         // above-ground biomass removed from the plot, roots stay in the soil as litter
         const double rootC = wR * C_ROOT;
         y[0][STR_C] += rootC * DLSTR; y[0][LAB_C] += rootC * (1 - DLSTR); y[0][LAB_N] += rootC / DLCN;
@@ -329,6 +336,15 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
     auto r = run(x, ti, clim, cfg, false, &D.days[ti], &at);
     if (!r.ok) return -std::numeric_limits<double>::infinity();
     size_t j = 0;
+    if (cfg.weeds) {
+      // soft constraints from field observations (photos one month after weeding in the rainy season): mean
+      // above-ground weed biomass at rainy-season weedings, groundnut 1.5 +- 0.75, control 0.3 +- 0.15 t DM/ha
+      const double obsW = ti == 2 ? 1500.0 : (ti == 0 ? 300.0 : -1), sdW = obsW / 2;
+      if (obsW > 0 && r.weedRainyN > 0) {
+        const double simW = r.weedRainySum / r.weedRainyN;
+        ll += -0.5 * std::log(2 * M_PI * sdW * sdW) - 0.5 * (simW - obsW) * (simW - obsW) / (sdW * sdW);
+      }
+    }
     for (size_t i = 0; i < D.obs.size(); i++) if (D.obs[i].trt == ti) {
       sim[i] = simValue(at[j++], D.obs[i].type);
       if (D.obs[i].type == MICN) sim[i] *= FN_USED / x[22];  // microbial N as reported with the factor 3.1
@@ -676,7 +692,8 @@ int main(int argc, char** argv) {
                                           double v = 0; for (size_t t = h; t < n; t++) v += (hist[c][t][i] - mean[c]) * (hist[c][t][i] - mean[c]); var[c] = v / (m - 1); }
           double B = 0, W = 0; for (int c = 0; c < nc; c++) { B += (mean[c] - gm) * (mean[c] - gm); W += var[c]; }
           B *= double(m) / (nc - 1); W /= nc;
-          const double r = W > 0 ? std::sqrt(((m - 1.0) / m * W + B / m) / W) : 1e9;
+          // a fixed parameter (no variance within or between chains) counts as converged
+          const double r = W > 0 ? std::sqrt(((m - 1.0) / m * W + B / m) / W) : (B > 0 ? 1e9 : 1.0);
           if (r > rmax) { rmax = r; worst = i; }
         }
         const double bestLL = *std::max_element(LL.begin(), LL.end());
