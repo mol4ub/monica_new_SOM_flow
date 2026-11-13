@@ -21,6 +21,7 @@
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
 //            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable),
+//            --holdout <treatment> (repeatable; leaves the treatment out of the likelihood, for cross-validation),
 //            --weeds, --ndep x, --nfix x (N deposition and fixation into mineral N with --weeds, kg N/ha/yr),
 //            --tillage (aggregate destruction at litter incorporation), --flexN, --leachN (see Config)
 #include "samm.h"
@@ -120,6 +121,9 @@ struct Config {
   bool leachN = false;
   //! data types left out of the likelihood "ar1" (--exclude "<type name>")
   std::set<int> excluded;
+  //! treatments left out of the calibration (--holdout CT|DP|GN|RS|TM, repeatable; for cross-validation): neither
+  //! their measurements nor their weed constraint enter the likelihood, and they are not simulated during it
+  std::set<int> heldOut;
   double thetaSat = 0.468, moistOpt = 0.45;
 };
 
@@ -356,6 +360,7 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
   double ll = 0;
   std::vector<double> sim(D.obs.size(), std::numeric_limits<double>::quiet_NaN());
   for (int ti = 0; ti < 5; ti++) {
+    if (cfg.heldOut.count(ti)) continue;
     std::vector<std::array<double, NUM_POOLS + NEXTRA>> at(D.days[ti].size());
     auto r = run(x, ti, clim, cfg, false, &D.days[ti], &at);
     if (!r.ok) return -std::numeric_limits<double>::infinity();
@@ -379,6 +384,7 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
     for (size_t i = 0; i < D.obs.size(); i++) {
       const auto& o = D.obs[i];
       if (o.type == MICC || o.type == SOILN) continue;  // not used in the paper's calibration
+      if (cfg.heldOut.count(o.trt)) continue;
       ll += -0.5 * std::log(2 * M_PI * D.var[o.type]) - 0.5 * (o.value - sim[i]) * (o.value - sim[i]) / D.var[o.type];
     }
     return ll;
@@ -388,6 +394,7 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
   for (const auto& series : D.series) {
     const int ty = D.obs[series[0]].type;
     if (hyperIndex[ty] < 0) continue;  // excluded data type
+    if (cfg.heldOut.count(D.obs[series[0]].trt)) continue;  // held-out treatment
     const double ratio = x[hyperIndex[ty]], tau = x[hyperIndex[ty] + 1], r = D.var[ty], q = ratio * ratio * r;
     double m = 0, P = q; int prevDay = 0;
     for (size_t k = 0; k < series.size(); k++) {
@@ -457,6 +464,9 @@ int main(int argc, char** argv) {
     else if (s == "--exclude") { std::string t = argv[++a]; bool found = false;
       for (int k = 0; k < NTYPES; k++) if (t == typeNames[k]) { cfg.excluded.insert(k); found = true; }
       if (!found) throw std::runtime_error("unknown data type for --exclude: " + t); }
+    else if (s == "--holdout") { std::string t = argv[++a]; bool found = false;
+      for (int k = 0; k < 5; k++) if (t == trtNames[k]) { cfg.heldOut.insert(k); found = true; }
+      if (!found) throw std::runtime_error("unknown treatment for --holdout: " + t); }
     else pos.push_back(s);
   }
   std::fprintf(stderr, "median variances:");
