@@ -47,6 +47,8 @@ static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Ag
                                         "Soil N"};
 // short names for the error-model hyperparameters sigma_<key> and tau_<key> (likelihood "ar1")
 static const char* typeKeys[NTYPES] = {"Litterbag", "MicN", "SOC", "AggC", "MAOC", "MicC", "SoilN"};
+static const int NEXTRA = 6;  // litterbag STR, LAB, LAB_N; weed above-ground and root biomass, mineral N
+static int weedIndex = -1;    // position of weed_rmax in the parameters (--weeds)
 static const int NPM = 23;  // number of model parameters incl. observation model (the hyperparameters follow them)
 static const double FN_USED = 3.1;  // factor used to convert ninhydrin-reactive N to microbial N in the data
 static int hyperIndex[NTYPES] = {-1, -1, -1, -1, -1, -1, -1};  // position of sigmaRatio_<type> in the parameters
@@ -101,6 +103,8 @@ struct Config {
   //! sigmaRatio_<type> * sqrt(var_type) and exponential temporal correlation exp(-dt / tau_<type>); exact likelihood
   //! with a Kalman filter.
   bool ar1 = false;
+  //! --weeds: spontaneous weed vegetation with weeding instead of the constant daily root input (see run())
+  bool weeds = false;
   //! data types left out of the likelihood "ar1" (--exclude "<type name>")
   std::set<int> excluded;
   double thetaSat = 0.468, moistOpt = 0.45;
@@ -122,13 +126,37 @@ static Params toParams(const std::vector<double>& x) {
 // before each addition and refilled with the added litter
 struct Bag { double STR, LAB, LABN; };
 
-struct Result { std::vector<std::array<double, NUM_POOLS + 3>> rows; bool ok = true; };
+struct Result { std::vector<std::array<double, NUM_POOLS + NEXTRA>> rows; bool ok = true; };
+
+// weeding (--weeds): monthly on the 15th in the rainy season (April-September), every second month in the dry season
+// (15 November, January, March), and at every litter incorporation (Laub et al. 2022); day 1 = 1995-03-01
+static bool weedingDay(int day) {
+  static std::vector<char> w;
+  if (w.empty()) {
+    w.assign(LAST + 400, 0);
+    int y = 1995, m = 3, dd = 1;
+    const int ml[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    for (int t = 1; t < int(w.size()); t++) {
+      if (dd == 15 && ((m >= 4 && m <= 9) || m == 11 || m == 1 || m == 3)) w[t] = 1;
+      if (addDays.count(t) && t > 1) w[t] = 1;
+      int len = ml[m - 1] + (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) ? 1 : 0);
+      if (++dd > len) { dd = 1; if (++m > 12) { m = 1; y++; } }
+    }
+  }
+  return day >= 0 && day < int(w.size()) && w[day];
+}
 
 // runs one treatment; rows[t-1] = state at the start of day t (R output row "time = t")
 static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& clim, const Config& cfg, bool keepRows,
-                  const std::vector<int>* needDays, std::vector<std::array<double, NUM_POOLS + 3>>* atDays) {
-  const Params p = toParams(x);
-  const double DLC = x[18], DLCN = x[19], DLSTR = x[20];
+                  const std::vector<int>* needDays, std::vector<std::array<double, NUM_POOLS + NEXTRA>>* atDays) {
+  Params p = toParams(x);
+  // --weeds: Daily_Litter_C is not used; Daily_Litter_CN and Daily_LitterSTR_C are the C:N and structural share of
+  // the weed roots; mineral N coupling of SAMM (scenario D, without desorption) feeds a mineral N pool
+  const double DLC = cfg.weeds ? 0.0 : x[18], DLCN = x[19], DLSTR = x[20];
+  if (cfg.weeds) { p.f_min = x[weedIndex + 4]; p.f_turn = x[weedIndex + 5]; p.k_des = 0; }
+  const double wRmax = cfg.weeds ? x[weedIndex] : 0, wWmax = cfg.weeds ? x[weedIndex + 1] : 1,
+               wKN = cfg.weeds ? x[weedIndex + 2] : 1, wRoot = cfg.weeds ? x[weedIndex + 3] : 0;
+  const double W0 = 20.0, N_SHOOT = 0.02, C_ROOT = 0.42;   // seed bank after weeding [kg DM/ha], shoot N, root C
   LayerEnv env; env.thickness = 0.15; env.bulkDensity = 1450; env.siltClay = 0.176;
   Profile prof(p, {env});
   const auto& t = trts[ti];
@@ -176,10 +204,12 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
   };
 
   Result res;
+  double wA = W0 * (1 - wRoot), wR = W0 * wRoot, minN = 5.0;  // weeds [kg DM/ha], mineral N 0-15 cm [kg N/ha]
   auto record = [&](int time) {
-    std::array<double, NUM_POOLS + 3> r;
+    std::array<double, NUM_POOLS + NEXTRA> r;
     for (int k = 0; k < NUM_POOLS; k++) r[k] = y[0][k];
     r[NUM_POOLS] = bag.STR; r[NUM_POOLS + 1] = bag.LAB; r[NUM_POOLS + 2] = bag.LABN;
+    r[NUM_POOLS + 3] = wA; r[NUM_POOLS + 4] = wR; r[NUM_POOLS + 5] = minN;
     if (keepRows) res.rows.push_back(r);
     if (atDays) for (size_t i = 0; i < needDays->size(); i++) if ((*needDays)[i] == time) (*atDays)[i] = r;
   };
@@ -192,9 +222,13 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
     const double w[4] = {0.5, 0.5, 1, 0};
     std::vector<LayerPools>* ks[4] = {&k1, &k2, &k3, &k4};
     tmp = y; Bag bt = bag;
+    double gross = 0, imm = 0;
+    const double wRK[4] = {1.0 / 6, 2.0 / 6, 2.0 / 6, 1.0 / 6};
     for (int s = 0; s < 4; s++) {
       const int idx = setDrivers(time + offs[s]);
+      d.layers[0].minN_kg_ha = minN;
       prof.derivatives(tmp, d, *ks[s], f);
+      gross += wRK[s] * f[0][F_MIN_GROSS]; imm += wRK[s] * f[0][F_MIN_IMM];
       kb[s] = bagDeriv(bt, tmp[0][MIC_C], idx, d.layers[0].corrF);
       if (s < 3) {
         for (int k = 0; k < NUM_POOLS; k++) tmp[0][k] = y[0][k] + w[s] * (*ks[s])[0][k];
@@ -208,13 +242,31 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
     bag.STR += (kb[0].STR + 2 * kb[1].STR + 2 * kb[2].STR + kb[3].STR) / 6.0;
     bag.LAB += (kb[0].LAB + 2 * kb[1].LAB + 2 * kb[2].LAB + kb[3].LAB) / 6.0;
     bag.LABN += (kb[0].LABN + 2 * kb[1].LABN + 2 * kb[2].LABN + kb[3].LABN) / 6.0;
+    if (cfg.weeds) {
+      // weed growth on day `time`: logistic, limited by temperature, soil water and mineral N; N uptake from minN
+      const auto& c = clim.at(time - 1);
+      const double fT = rateModTempKirschbaum(c.temp), fW = std::min(1.0, std::max(0.0, (c.theta - 0.06) / 0.09));
+      const double fN = minN / (minN + wKN), W = wA + wR;
+      double dW = std::max(0.0, wRmax * fT * fW * fN * W * (1 - W / wWmax));
+      const double nPerDM = (1 - wRoot) * N_SHOOT + wRoot * C_ROOT / DLCN;
+      if (dW * nPerDM > 0.9 * minN) dW = 0.9 * minN / nPerDM;
+      const double water = c.theta * 0.15 * 1e7, leachN = minN * std::min(c.leach_mm * 1e4 / water, 0.95);
+      minN = std::max(0.0, minN + gross - imm - dW * nPerDM - leachN);
+      wA += dW * (1 - wRoot); wR += dW * wRoot;
+      if (weedingDay(time)) {
+        // above-ground biomass removed from the plot, roots stay in the soil as litter
+        const double rootC = wR * C_ROOT;
+        y[0][STR_C] += rootC * DLSTR; y[0][LAB_C] += rootC * (1 - DLSTR); y[0][LAB_N] += rootC / DLCN;
+        wA = W0 * (1 - wRoot); wR = W0 * wRoot;
+      }
+    }
     if (!res.ok && !keepRows) return res;
     record(time + 1);
   }
   return res;
 }
 
-static double simValue(const std::array<double, NUM_POOLS + 3>& r, int type) {
+static double simValue(const std::array<double, NUM_POOLS + NEXTRA>& r, int type) {
   switch (type) {
     case LITTERBAG: return r[NUM_POOLS] + r[NUM_POOLS + 1];
     case MICN: return r[MIC_N];
@@ -273,7 +325,7 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
   double ll = 0;
   std::vector<double> sim(D.obs.size(), std::numeric_limits<double>::quiet_NaN());
   for (int ti = 0; ti < 5; ti++) {
-    std::vector<std::array<double, NUM_POOLS + 3>> at(D.days[ti].size());
+    std::vector<std::array<double, NUM_POOLS + NEXTRA>> at(D.days[ti].size());
     auto r = run(x, ti, clim, cfg, false, &D.days[ti], &at);
     if (!r.ok) return -std::numeric_limits<double>::infinity();
     size_t j = 0;
@@ -356,6 +408,7 @@ int main(int argc, char** argv) {
     else if (s == "--thin") thin = std::stoi(argv[++a]);
     else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
     else if (s == "--lik") cfg.ar1 = std::string(argv[++a]) == "ar1";
+    else if (s == "--weeds") cfg.weeds = true;
     else if (s == "--exclude") { std::string t = argv[++a]; bool found = false;
       for (int k = 0; k < NTYPES; k++) if (t == typeNames[k]) { cfg.excluded.insert(k); found = true; }
       if (!found) throw std::runtime_error("unknown data type for --exclude: " + t); }
@@ -364,6 +417,16 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, "median variances:");
   for (int k = 0; k < NTYPES; k++) std::fprintf(stderr, " %s %.1f", typeNames[k], D.var[k]);
   std::fprintf(stderr, " (%zu observations)\n", D.obs.size());
+  if (cfg.weeds) {
+    weedIndex = int(pdefs.size());
+    pdefs.push_back({"weed_rmax", 0.01, 0.5});      // maximum relative growth rate [d-1]
+    pdefs.push_back({"weed_Wmax", 200.0, 15000.0}); // maximum biomass [kg DM/ha]
+    pdefs.push_back({"weed_KN", 0.1, 50.0});        // half saturation of mineral N [kg N/ha, 0-15 cm]
+    pdefs.push_back({"weed_rootFrac", 0.05, 0.6});  // share of new biomass in roots
+    pdefs.push_back({"f_min", 0.0, 1.0});           // SAMM: share of the microbial N surplus released as mineral N
+    pdefs.push_back({"f_turn", 0.0, 1.0});          // SAMM: share of microbial turnover / MAO N released as mineral N
+    NP = int(pdefs.size());
+  }
   static std::vector<std::string> hyperNames;
   if (cfg.ar1) {
     hyperNames.reserve(2 * NTYPES);
@@ -386,7 +449,7 @@ int main(int argc, char** argv) {
     std::ofstream out(pos.at(1)); out.precision(12);
     out << "time";
     for (int k = 0; k < NUM_POOLS; k++) out << "," << poolName(k);
-    out << ",LitterBagSTR_C,LitterBagLAB_C,LitterBagLAB_N,TRT\n";
+    out << ",LitterBagSTR_C,LitterBagLAB_C,LitterBagLAB_N,WeedAGB,WeedRoot,MinN,TRT\n";
     for (int ti = 0; ti < 5; ti++) {
       auto r = run(x, ti, clim, cfg, true, nullptr, nullptr);
       for (size_t i = 0; i < r.rows.size(); i++) {
@@ -643,7 +706,7 @@ int main(int argc, char** argv) {
     const long n = std::min<long>(nSir, long(all.size()));
     for (long k = 0; k < n; k++) S.push_back(all[size_t(std::uniform_real_distribution<double>(0, 1)(rng) * all.size())]);
     const char* qn[7] = {"SOC", "Microbial N", "Microbial C", "Aggregate C", "Free MOAC", "Litterbag C", "Soil N"};
-    auto qv = [](const std::array<double, NUM_POOLS + 3>& r, int q) {
+    auto qv = [](const std::array<double, NUM_POOLS + NEXTRA>& r, int q) {
       switch (q) { case 0: return r[LMW_C] + r[MIC_C] + r[MAO_C] + r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 1: return r[MIC_N];
         case 2: return r[MIC_C]; case 3: return r[AggSTR_C] + r[AggLAB_C] + r[AggMAO_C]; case 4: return r[MAO_C];
         case 5: return r[NUM_POOLS] + r[NUM_POOLS + 1];
