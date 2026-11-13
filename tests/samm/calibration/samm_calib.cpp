@@ -20,7 +20,7 @@
 //   options: --modifiers SAMM|KirschbaumMONICA (default KirschbaumMONICA), --threads n, --pop n, --gens n,
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
-//            --lik paper|ar1 (default paper; see Config::ar1)
+//            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable)
 #include "samm.h"
 
 #include <algorithm>
@@ -48,6 +48,7 @@ static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Ag
 // short names for the error-model hyperparameters sigma_<key> and tau_<key> (likelihood "ar1")
 static const char* typeKeys[NTYPES] = {"Litterbag", "MicN", "SOC", "AggC", "MAOC", "MicC", "SoilN"};
 static const int NPM = 21;  // number of model parameters (the hyperparameters follow them)
+static int hyperIndex[NTYPES] = {-1, -1, -1, -1, -1, -1, -1};  // position of sigmaRatio_<type> in the parameters
 
 static std::vector<std::string> split(const std::string& s, char sep) {
   std::vector<std::string> f; std::stringstream ss(s); std::string x;
@@ -91,10 +92,13 @@ struct Config {
   bool sammModifiers = false;
   //! false ("paper"): independent Gaussian errors with the median measurement variance per data type, data types
   //! litterbag C, microbial N, SOC, aggregate C, free MAOC (Laub et al. 2024).
-  //! true ("ar1"): all seven data types; per treatment and data type, residual = independent measurement error
-  //! (median measurement variance) + model error with standard deviation sigma_<type> and exponential temporal
-  //! correlation exp(-dt / tau_<type>); exact likelihood with a Kalman filter.
+  //! true ("ar1"): all seven data types (except --exclude); per treatment and data type, residual = independent
+  //! measurement error (median measurement variance var_type) + model error with standard deviation
+  //! sigmaRatio_<type> * sqrt(var_type) and exponential temporal correlation exp(-dt / tau_<type>); exact likelihood
+  //! with a Kalman filter.
   bool ar1 = false;
+  //! data types left out of the likelihood "ar1" (--exclude "<type name>")
+  std::set<int> excluded;
   double thetaSat = 0.468, moistOpt = 0.45;
 };
 
@@ -283,7 +287,8 @@ static double logLik(const std::vector<double>& x, const std::vector<Day>& clim,
   // exp(-dt/tau)) plus independent measurement error with the median measurement variance of the data type
   for (const auto& series : D.series) {
     const int ty = D.obs[series[0]].type;
-    const double sig = x[NPM + 2 * ty], tau = x[NPM + 2 * ty + 1], r = D.var[ty], q = sig * sig;
+    if (hyperIndex[ty] < 0) continue;  // excluded data type
+    const double ratio = x[hyperIndex[ty]], tau = x[hyperIndex[ty] + 1], r = D.var[ty], q = ratio * ratio * r;
     double m = 0, P = q; int prevDay = 0;
     for (size_t k = 0; k < series.size(); k++) {
       const auto& o = D.obs[series[k]];
@@ -341,6 +346,9 @@ int main(int argc, char** argv) {
     else if (s == "--thin") thin = std::stoi(argv[++a]);
     else if (s == "--rhat") rhatStop = std::stod(argv[++a]);
     else if (s == "--lik") cfg.ar1 = std::string(argv[++a]) == "ar1";
+    else if (s == "--exclude") { std::string t = argv[++a]; bool found = false;
+      for (int k = 0; k < NTYPES; k++) if (t == typeNames[k]) { cfg.excluded.insert(k); found = true; }
+      if (!found) throw std::runtime_error("unknown data type for --exclude: " + t); }
     else pos.push_back(s);
   }
   std::fprintf(stderr, "median variances:");
@@ -348,12 +356,13 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, " (%zu observations)\n", D.obs.size());
   static std::vector<std::string> hyperNames;
   if (cfg.ar1) {
+    hyperNames.reserve(2 * NTYPES);
     for (int k = 0; k < NTYPES; k++) {
-      hyperNames.push_back(std::string("sigma_") + typeKeys[k]); hyperNames.push_back(std::string("tau_") + typeKeys[k]);
-    }
-    for (int k = 0; k < NTYPES; k++) {
-      pdefs.push_back({hyperNames[2 * k].c_str(), 0.0, 10 * std::sqrt(D.var[k])});
-      pdefs.push_back({hyperNames[2 * k + 1].c_str(), 1.0, 5000.0});
+      if (cfg.excluded.count(k)) continue;
+      hyperNames.push_back(std::string("sigmaRatio_") + typeKeys[k]); hyperNames.push_back(std::string("tau_") + typeKeys[k]);
+      hyperIndex[k] = int(pdefs.size());
+      pdefs.push_back({hyperNames[hyperNames.size() - 2].c_str(), 0.0, 3.0});
+      pdefs.push_back({hyperNames[hyperNames.size() - 1].c_str(), 1.0, 365.0});
     }
     NP = int(pdefs.size());
     std::fprintf(stderr, "likelihood ar1: %d data series, %d parameters incl. error model\n", int(D.series.size()), NP);
