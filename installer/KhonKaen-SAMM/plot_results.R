@@ -1,6 +1,14 @@
 # Plots the MONICA-SAMM results of the Khon Kaen experiment against the measurements and prints RMSE and EF.
 # Base R only. Run in this folder after run_khonkaen.bat:  Rscript plot_results.R
 # Writes output/khonkaen_results.png and output/matched.csv.
+# After run_khonkaen_kirschbaum.bat:  Rscript plot_results.R Kirschbaum
+# (reads output/out-<treatment>-Kirschbaum.csv, writes output/khonkaen_results_Kirschbaum.png and
+# output/matched_Kirschbaum.csv; SOC includes LMW-C and microbial N is compared as reported, MIC_N * 3.1 / 2.004,
+# as in the calibration of SAMMKirschbaum)
+variant <- if (length(commandArgs(TRUE)) > 0) commandArgs(TRUE)[1] else ""
+kb <- variant == "Kirschbaum"
+suffix <- if (kb) "-Kirschbaum" else ""
+fN <- if (kb) 2.004 else 3.1     # ninhydrin factor: fitted in the calibration of SAMMKirschbaum; data use 3.1
 start <- as.Date("1995-03-01")   # day 1 of the simulation (measurements are given by "Day of simulation")
 kgha <- 0.15 * 10000             # kg m-3 in the 0-15 cm layer -> kg ha-1
 trts <- c(CT = "Control", DP = "Dipterocarp", GN = "Groundnut", RS = "Rice straw", TM = "Tamarind")
@@ -12,18 +20,18 @@ read_monica <- function(f) {
   d <- read.csv(f, skip = 3, header = FALSE, col.names = hdr)
   p <- function(n) d[[paste0("SAMM_", n, "_1")]] * kgha
   data.frame(date = as.Date(d$Date),
-             "SOC" = p("MIC_C") + p("MAO_C") + p("AggSTR_C") + p("AggLAB_C") + p("AggMAO_C"),
+             "SOC" = (if (kb) p("LMW_C") else 0) + p("MIC_C") + p("MAO_C") + p("AggSTR_C") + p("AggLAB_C") + p("AggMAO_C"),
              "Soil N" = p("LMW_N") + p("MIC_N") + p("MAO_N") + p("AggLAB_N") + p("AggMAO_N"),
-             "Microbial C" = p("MIC_C"), "Microbial N" = p("MIC_N"),
+             "Microbial C" = p("MIC_C"), "Microbial N" = p("MIC_N") * 3.1 / fN,
              "Aggregate C" = p("AggSTR_C") + p("AggLAB_C") + p("AggMAO_C"), "Free MOAC" = p("MAO_C"),
              check.names = FALSE)
 }
 sim <- list()
 for (t in names(trts)) {
-  f <- file.path("output", paste0("out-", t, ".csv"))
+  f <- file.path("output", paste0("out-", t, suffix, ".csv"))
   if (file.exists(f)) sim[[t]] <- read_monica(f)
 }
-if (length(sim) == 0) stop("no output/out-<treatment>.csv found; run run_khonkaen.bat first")
+if (length(sim) == 0) stop(paste0("no output/out-<treatment>", suffix, ".csv found; run the batch file first"))
 
 m <- read.csv("measurements.csv", sep = ";", check.names = FALSE, fileEncoding = "UTF-8-BOM")
 m <- m[m[["Measurement type"]] %in% types & m$Treatment %in% names(sim), ]
@@ -32,7 +40,7 @@ m$date <- start + pmax(m[["Day of simulation"]], 2) - 2
 m$sd <- sqrt(m$Variance)
 m$sim <- mapply(function(t, ty, d) { s <- sim[[t]]; v <- s[[ty]][s$date == d]; if (length(v)) v else NA },
                 m$Treatment, m[["Measurement type"]], m$date)
-write.csv(m, file.path("output", "matched.csv"), row.names = FALSE)
+write.csv(m, file.path("output", paste0("matched", gsub("-", "_", suffix), ".csv")), row.names = FALSE)
 
 cat(sprintf("%-12s %5s %9s %7s %9s\n", "type", "n", "RMSE", "EF", "bias"))
 for (ty in types) {
@@ -43,7 +51,7 @@ for (ty in types) {
   cat(sprintf("%-12s %5d %9.1f %7.2f %+9.1f\n", ty, nrow(x), rmse, ef, mean(x$sim - x$Value)))
 }
 
-png(file.path("output", "khonkaen_results.png"), width = 3000, height = 3400, res = 200)
+png(file.path("output", paste0("khonkaen_results", gsub("-", "_", suffix), ".png")), width = 3000, height = 3400, res = 200)
 par(mfrow = c(length(types), length(sim)), mar = c(2.6, 3.6, 2.2, 0.6), mgp = c(2.2, 0.6, 0), oma = c(2, 1, 0, 0))
 for (i in seq_along(types)) {
   ty <- types[i]
@@ -62,6 +70,6 @@ for (i in seq_along(types)) {
     }
   }
 }
-mtext("Line: SAMM in MONICA    Points: measured +/- 1 SD", side = 1, outer = TRUE, line = 0.6, cex = 1.1)
+mtext(paste0("Line: SAMM", if (kb) "Kirschbaum" else "", " in MONICA    Points: measured +/- 1 SD"), side = 1, outer = TRUE, line = 0.6, cex = 1.1)
 invisible(dev.off())
-cat("written: output/khonkaen_results.png, output/matched.csv\n")
+cat("written to output/: khonkaen_results", gsub("-", "_", suffix), ".png, matched", gsub("-", "_", suffix), ".csv\n", sep = "")

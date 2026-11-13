@@ -126,6 +126,7 @@ jobs:
           mkdir monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-producer-consumer
           mkdir monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-producer-consumer/python
           mkdir monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-single-run
+          mkdir monica_${{ inputs.tag || github.ref_name }}/documentation/images
           cp monica/monica-parameters/soil/CapillaryRiseRates.sercapnp monica_${{ inputs.tag || github.ref_name }}/bin/soil/
           cp monica/monica-parameters/soil/SoilCharacteristicData.sercapnp monica_${{ inputs.tag || github.ref_name }}/bin/soil/
           cp monica/monica-parameters/soil/SoilCharacteristicModifier.sercapnp monica_${{ inputs.tag || github.ref_name }}/bin/soil/
@@ -141,6 +142,10 @@ jobs:
           cp monica/LICENSE monica_${{ inputs.tag || github.ref_name }}/bin/
           cp monica/documentation/de_benutzerhandbuch_MONICA_windows.pdf monica_${{ inputs.tag || github.ref_name }}/documentation/
           cp monica/documentation/en_user_manual_MONICA_windows.pdf monica_${{ inputs.tag || github.ref_name }}/documentation/
+          # SAMM soil organic matter module: documentation, open issues and their figures
+          cp monica/documentation/samm.md monica_${{ inputs.tag || github.ref_name }}/documentation/
+          cp monica/documentation/samm-issues.md monica_${{ inputs.tag || github.ref_name }}/documentation/
+          cp monica/documentation/images/samm_* monica_${{ inputs.tag || github.ref_name }}/documentation/images/
           
           cp -r monica/monica-parameters/crop-residues monica_${{ inputs.tag || github.ref_name }}/monica-parameters/
           cp -r monica/monica-parameters/crops monica_${{ inputs.tag || github.ref_name }}/monica-parameters/
@@ -168,6 +173,9 @@ jobs:
           cp monica/installer/Hohenfinow2/climate.csv monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-single-run/
           cp monica/installer/Hohenfinow2/python/run_monica.cmd monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-single-run/
           cp monica/installer/Hohenfinow2/python/README_single.md monica_${{ inputs.tag || github.ref_name }}/projects/Hohenfinow2-single-run/README.md
+
+          # Khon Kaen litter experiment with SAMM (SAMM v1.1 and the recalibrated variant SAMMKirschbaum)
+          cp -r monica/installer/KhonKaen-SAMM monica_${{ inputs.tag || github.ref_name }}/projects/
 
           Compress-Archive -Path monica_${{ inputs.tag || github.ref_name }}/* -Destination monica_win64_${{ inputs.tag || github.ref_name }}.zip
 
