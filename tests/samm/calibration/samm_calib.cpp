@@ -21,7 +21,8 @@
 //            --seed n, --thetaSat x (default 0.468), --moistOpt x (default 0.45), --n n (default 200000),
 //            --chains n (4), --maxGen n (60000), --thin n (10), --rhat x (stop when all R-hat < x, default 1.1),
 //            --lik paper|ar1 (default paper; see Config::ar1), --exclude "<data type>" (ar1 only, repeatable),
-//            --weeds, --ndep x, --nfix x (N deposition and fixation into mineral N with --weeds, kg N/ha/yr)
+//            --weeds, --ndep x, --nfix x (N deposition and fixation into mineral N with --weeds, kg N/ha/yr),
+//            --tillage (aggregate destruction at litter incorporation), --flexN, --leachN (see Config)
 #include "samm.h"
 
 #include <algorithm>
@@ -50,6 +51,8 @@ static const char* typeNames[NTYPES] = {"Litterbag C", "Microbial N", "SOC", "Ag
 static const char* typeKeys[NTYPES] = {"Litterbag", "MicN", "SOC", "AggC", "MAOC", "MicC", "SoilN"};
 static const int NEXTRA = 6;  // litterbag STR, LAB, LAB_N; weed above-ground and root biomass, mineral N
 static int weedIndex = -1;    // position of weed_rmax in the parameters (--weeds)
+static int tillIndex = -1;    // position of aggDestroy (--tillage)
+static int leachIndex = -1;   // position of leachShareN (--leachN)
 static const int NPM = 23;  // number of model parameters incl. observation model (the hyperparameters follow them)
 static const double FN_USED = 3.1;  // factor used to convert ninhydrin-reactive N to microbial N in the data
 static int hyperIndex[NTYPES] = {-1, -1, -1, -1, -1, -1, -1};  // position of sigmaRatio_<type> in the parameters
@@ -109,6 +112,12 @@ struct Config {
   //! --ndep, --nfix: atmospheric N deposition and free-living N fixation into the mineral N pool [kg N ha-1 yr-1]
   //! (with --weeds; estimates for Khon Kaen: deposition about 7, fixation about 2)
   double nDep = 0, nFix = 0;
+  //! --tillage: share aggDestroy of the aggregates broken up at every litter incorporation by hoe (all treatments)
+  bool tillage = false;
+  //! --flexN: weed N concentration of new shoot growth between 0.8% and 2.5% depending on N availability (else 2%)
+  bool flexN = false;
+  //! --leachN: only the share leachShareN of the mineral N is leachable (e.g. nitrate, ammonium partly retained)
+  bool leachN = false;
   //! data types left out of the likelihood "ar1" (--exclude "<type name>")
   std::set<int> excluded;
   double thetaSat = 0.468, moistOpt = 0.45;
@@ -252,15 +261,26 @@ static Result run(const std::vector<double>& x, int ti, const std::vector<Day>& 
     bag.STR += (kb[0].STR + 2 * kb[1].STR + 2 * kb[2].STR + kb[3].STR) / 6.0;
     bag.LAB += (kb[0].LAB + 2 * kb[1].LAB + 2 * kb[2].LAB + kb[3].LAB) / 6.0;
     bag.LABN += (kb[0].LABN + 2 * kb[1].LABN + 2 * kb[2].LABN + kb[3].LABN) / 6.0;
+    if (cfg.tillage && addDays.count(time)) {
+      // hoeing at litter incorporation (also in the control): aggregates partly broken up, contents released
+      const double f = x[tillIndex];
+      const double dS = f * y[0][AggSTR_C], dL = f * y[0][AggLAB_C], dLN = f * y[0][AggLAB_N];
+      const double dM = f * y[0][AggMAO_C], dMN = f * y[0][AggMAO_N];
+      y[0][AggSTR_C] -= dS; y[0][STR_C] += dS; y[0][AggLAB_C] -= dL; y[0][LAB_C] += dL;
+      y[0][AggLAB_N] -= dLN; y[0][LAB_N] += dLN; y[0][AggMAO_C] -= dM; y[0][MAO_C] += dM;
+      y[0][AggMAO_N] -= dMN; y[0][MAO_N] += dMN;
+    }
     if (cfg.weeds) {
       // weed growth on day `time`: logistic, limited by temperature, soil water and mineral N; N uptake from minN
       const auto& c = clim.at(time - 1);
       const double fT = rateModTempKirschbaum(c.temp), fW = std::min(1.0, std::max(0.0, (c.theta - 0.06) / 0.09));
       const double fN = minN / (minN + wKN), W = wA + wR;
       double dW = std::max(0.0, wRmax * fT * fW * fN * W * (1 - W / wWmax));
-      const double nPerDM = (1 - wRoot) * N_SHOOT + wRoot * C_ROOT / DLCN;
+      const double nShoot = cfg.flexN ? 0.008 + (0.025 - 0.008) * fN : N_SHOOT;
+      const double nPerDM = (1 - wRoot) * nShoot + wRoot * C_ROOT / DLCN;
       if (dW * nPerDM > 0.9 * minN) dW = 0.9 * minN / nPerDM;
-      const double water = c.theta * 0.15 * 1e7, leachN = minN * std::min(c.leach_mm * 1e4 / water, 0.95);
+      const double leachable = cfg.leachN ? x[leachIndex] : 1.0;
+      const double water = c.theta * 0.15 * 1e7, leachN = leachable * minN * std::min(c.leach_mm * 1e4 / water, 0.95);
       minN = std::max(0.0, minN + gross - imm - dW * nPerDM - leachN + (cfg.nDep + cfg.nFix) / 365.0);
       wA += dW * (1 - wRoot); wR += dW * wRoot;
       if (weedingDay(time)) {
@@ -431,6 +451,9 @@ int main(int argc, char** argv) {
     else if (s == "--weeds") cfg.weeds = true;
     else if (s == "--ndep") cfg.nDep = std::stod(argv[++a]);
     else if (s == "--nfix") cfg.nFix = std::stod(argv[++a]);
+    else if (s == "--tillage") cfg.tillage = true;
+    else if (s == "--flexN") cfg.flexN = true;
+    else if (s == "--leachN") cfg.leachN = true;
     else if (s == "--exclude") { std::string t = argv[++a]; bool found = false;
       for (int k = 0; k < NTYPES; k++) if (t == typeNames[k]) { cfg.excluded.insert(k); found = true; }
       if (!found) throw std::runtime_error("unknown data type for --exclude: " + t); }
@@ -449,6 +472,8 @@ int main(int argc, char** argv) {
     pdefs.push_back({"f_turn", 0.0, 1.0});          // SAMM: share of microbial turnover / MAO N released as mineral N
     NP = int(pdefs.size());
   }
+  if (cfg.tillage) { tillIndex = int(pdefs.size()); pdefs.push_back({"aggDestroy", 0.0, 0.8}); NP = int(pdefs.size()); }
+  if (cfg.leachN) { leachIndex = int(pdefs.size()); pdefs.push_back({"leachShareN", 0.0, 1.0}); NP = int(pdefs.size()); }
   static std::vector<std::string> hyperNames;
   if (cfg.ar1) {
     hyperNames.reserve(2 * NTYPES);
