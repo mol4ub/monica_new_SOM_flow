@@ -1,6 +1,7 @@
 # SAMM in MONICA: critical issues found and their status
 
-Status as of 2026-11-13, branch `samm-som-module`. Details of the implementation are in [samm.md](samm.md).
+Status as of 2026-11-17, branch `samm-som-module`. Details of the implementation are in [samm.md](samm.md); the
+history of the whole project and how to continue it in [samm-handover.md](samm-handover.md).
 
 Summary:
 
@@ -20,7 +21,7 @@ Summary:
 | 12 | Total MAOC lower with MONICA's drivers than with HYDRUS (control) | **open** (cause not confirmed) |
 | 13 | Soil N overestimated in the litter treatments | **open** |
 | 14 | N mineralisation at temperate sites 2.8-3.5 × DAISY | **open** (needs calibration) |
-| 15 | Windows release `3.7.4.samm` built before the sub-steps | **open** (needs a new build) |
+| 15 | Windows release `3.7.4.samm` built before the sub-steps | **fixed** (release `3.7.4.samm-kirschbaum`) |
 | 16 | `SAMMKirschbaum` tied to the HYDRUS water balance of its calibration: MONICA drains less below 15 cm, SOC of the residue treatments 0.5-1.6 t C/ha too high | **open** |
 
 ---
@@ -182,8 +183,10 @@ Summary:
 
 ### 15. Windows release
 
-- The released Windows build `3.7.4.samm` predates the adaptive sub-steps and the Kirschbaum option; a new build is
-  needed to use them on Windows. The standalone SAMM package (`tests/samm/calibration/standalone/`) is up to date.
+- The released Windows build `3.7.4.samm` predates the adaptive sub-steps and the Kirschbaum option. **Fixed:**
+  release `3.7.4.samm-kirschbaum` (commit `c66d7e4`, 2026-11-13) has both, the variant `SAMMKirschbaum`, the SAMM
+  documentation and `projects/KhonKaen-SAMM`. The standalone SAMM package (`tests/samm/calibration/standalone/`)
+  still has only the v1.1 parameters; an update with the run 7 parameters is open.
 
 ### 16. SAMMKirschbaum and MONICA's water balance
 

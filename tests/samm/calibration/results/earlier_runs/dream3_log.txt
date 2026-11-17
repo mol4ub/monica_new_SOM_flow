@@ -1,0 +1,30 @@
+median variances: Litterbag C 16162.7 Microbial N 113.1 SOC 128840.9 Aggregate C 23309.1 Free MOAC 13746.1 Microbial C 2200.6 Soil N 1682.0 (855 observations)
+likelihood ar1: 34 data series, 33 parameters incl. error model
+gen   1000  acceptance 0.067  max R-hat 3.344 (tau_SoilN)  logLik of chains -3706.9 -3703.7 -3706.3 -3700.2
+gen   2000  acceptance 0.057  max R-hat 2.311 (aggfactMAO_C)  logLik of chains -3700.3 -3695.2 -3689.5 -3687.5
+gen   3000  acceptance 0.050  max R-hat 2.359 (Daily_Litter_CN)  logLik of chains -3684.8 -3690.6 -3684.1 -3683.5
+gen   4000  acceptance 0.045  max R-hat 2.042 (MicMaxCN)  logLik of chains -3687.1 -3686.7 -3680.5 -3682.9
+gen   5000  acceptance 0.043  max R-hat 1.837 (NonMicAgg)  logLik of chains -3678.1 -3679.7 -3692.6 -3682.0
+gen   6000  acceptance 0.041  max R-hat 1.710 (tau_MAOC)  logLik of chains -3673.4 -3682.9 -3678.7 -3685.3
+gen   7000  acceptance 0.041  max R-hat 1.577 (tau_MAOC)  logLik of chains -3680.4 -3676.5 -3687.2 -3672.0
+gen   8000  acceptance 0.040  max R-hat 1.461 (tau_SOC)  logLik of chains -3676.3 -3676.5 -3680.5 -3675.3
+gen   9000  acceptance 0.039  max R-hat 1.526 (tau_SOC)  logLik of chains -3679.1 -3683.4 -3676.4 -3670.8
+gen  10000  acceptance 0.038  max R-hat 1.502 (Daily_Litter_CN)  logLik of chains -3673.0 -3683.8 -3671.0 -3671.7
+gen  11000  acceptance 0.037  max R-hat 1.523 (sigmaRatio_Litterbag)  logLik of chains -3676.9 -3683.0 -3679.6 -3674.3
+gen  12000  acceptance 0.037  max R-hat 1.391 (sigmaRatio_Litterbag)  logLik of chains -3675.4 -3680.4 -3678.8 -3671.1
+gen  13000  acceptance 0.036  max R-hat 1.485 (aggfactSTR_C)  logLik of chains -3671.8 -3680.8 -3679.8 -3672.0
+gen  14000  acceptance 0.036  max R-hat 1.583 (aggfactSTR_C)  logLik of chains -3676.5 -3680.5 -3688.9 -3674.7
+gen  15000  acceptance 0.036  max R-hat 1.660 (aggfactSTR_C)  logLik of chains -3671.7 -3680.4 -3680.9 -3676.0
+gen  16000  acceptance 0.035  max R-hat 1.630 (aggfactSTR_C)  logLik of chains -3685.3 -3680.4 -3672.6 -3669.4
+gen  17000  acceptance 0.035  max R-hat 1.553 (Daily_LitterSTR_C)  logLik of chains -3674.3 -3686.2 -3669.4 -3672.1
+gen  18000  acceptance 0.034  max R-hat 1.427 (Daily_LitterSTR_C)  logLik of chains -3684.1 -3683.9 -3672.0 -3673.9
+gen  19000  acceptance 0.033  max R-hat 1.421 (Daily_LitterSTR_C)  logLik of chains -3670.6 -3674.4 -3667.5 -3678.6
+gen  20000  acceptance 0.033  max R-hat 1.318 (K_M_MIC_C)  logLik of chains -3672.9 -3673.4 -3676.4 -3674.6
+gen  21000  acceptance 0.033  max R-hat 1.285 (k_MIC)  logLik of chains -3680.3 -3676.0 -3672.8 -3677.3
+gen  22000  acceptance 0.033  max R-hat 1.302 (k_MIC)  logLik of chains -3671.9 -3674.8 -3677.8 -3689.5
+gen  23000  acceptance 0.033  max R-hat 1.293 (Daily_Litter_C)  logLik of chains -3678.2 -3687.8 -3674.7 -3680.9
+gen  24000  acceptance 0.033  max R-hat 1.292 (k_MIC)  logLik of chains -3680.5 -3673.5 -3669.5 -3678.4
+gen  25000  acceptance 0.033  max R-hat 1.306 (k_MIC)  logLik of chains -3674.9 -3677.8 -3667.8 -3672.1
+gen  26000  acceptance 0.032  max R-hat 1.294 (K_M_MIC_C)  logLik of chains -3681.7 -3673.1 -3671.9 -3677.2
+gen  27000  acceptance 0.032  max R-hat 1.333 (Daily_Litter_C)  logLik of chains -3674.0 -3677.8 -3676.1 -3681.3
+gen  28000  acceptance 0.032  max R-hat 1.351 (Daily_Litter_C)  logLik of chains -3680.3 -3683.6 -3669.4 -3688.7

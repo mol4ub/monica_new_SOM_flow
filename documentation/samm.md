@@ -1,6 +1,7 @@
 # SAMM in MONICA
 
-Known issues and their status: [samm-issues.md](samm-issues.md).
+Known issues and their status: [samm-issues.md](samm-issues.md). History of the whole project, how to build, run
+and continue it: [samm-handover.md](samm-handover.md).
 
 This document describes how the soil organic matter model **SAMM** (Soil Aggregation through Microbial
 Mediation) was added to MONICA as an alternative to the DAISY-based soil organic matter module, and every
